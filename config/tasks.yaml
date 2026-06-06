@@ -1,0 +1,47 @@
+fx_morning:
+  enabled: true
+  category: fx
+  title: "7:00 朝の為替・FX・投機筋チェック"
+  run_at: "07:00"
+  weekdays: [1, 2, 3, 4, 5, 6]
+  chart_symbols: ["USDJPY", "EURJPY", "DXY"]
+
+japan_morning:
+  enabled: true
+  category: japan_market
+  title: "8:00 朝の日本株・決算・海外市場・信用評価チェック"
+  run_at: "08:00"
+  weekdays: [1, 2, 3, 4, 5]
+  chart_symbols: ["NIKKEI225", "TOPIX", "SP500", "NASDAQ"]
+
+japan_midday:
+  enabled: false
+  category: japan_market
+  title: "12:00 日本市場 前場まとめチェック"
+  run_at: "12:00"
+  weekdays: [1, 2, 3, 4, 5]
+  chart_symbols: ["NIKKEI225", "TOPIX"]
+
+japan_close:
+  enabled: true
+  category: japan_market
+  title: "17:00 日本市場 大引け後・需給チェック"
+  run_at: "17:00"
+  weekdays: [1, 2, 3, 4, 5]
+  chart_symbols: ["NIKKEI225", "TOPIX", "USDJPY"]
+
+earnings_close:
+  enabled: false
+  category: earnings
+  title: "18:00 日本株・引け後決算分析"
+  run_at: "18:00"
+  weekdays: [1, 2, 3, 4, 5]
+  chart_symbols: []
+
+fx_evening:
+  enabled: false
+  category: fx
+  title: "20:30 為替・FX 米国時間前チェック"
+  run_at: "20:30"
+  weekdays: [1, 2, 3, 4, 5]
+  chart_symbols: ["USDJPY", "EURJPY", "DXY"]

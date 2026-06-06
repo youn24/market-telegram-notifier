@@ -1,0 +1,39 @@
+fx:
+  symbols:
+    USDJPY:
+      ticker: "JPY=X"
+      label: "USD/JPY"
+    EURJPY:
+      ticker: "EURJPY=X"
+      label: "EUR/JPY"
+    DXY:
+      ticker: "DX-Y.NYB"
+      label: "ドル指数"
+  unavailable_items:
+    speculative_positions: "投機筋ポジションは無料版では未確認"
+
+japan_market:
+  symbols:
+    NIKKEI225:
+      ticker: "^N225"
+      label: "日経225"
+    TOPIX:
+      ticker: "^TOPX"
+      label: "TOPIX"
+    SP500:
+      ticker: "^GSPC"
+      label: "S&P500"
+    NASDAQ:
+      ticker: "^IXIC"
+      label: "NASDAQ"
+    USDJPY:
+      ticker: "JPY=X"
+      label: "USD/JPY"
+  unavailable_items:
+    earnings: "個別決算一覧は無料版では未確認"
+    ratings: "信用評価・レーティングは無料版では未確認"
+    supply_demand: "需給データは無料版では未確認"
+
+earnings:
+  unavailable_items:
+    analysis: "引け後決算分析は初期設定では未確認"

@@ -1,0 +1,16 @@
+common:
+  lookback_days: 5
+  chart_width: 1280
+  chart_height: 720
+  card_width: 1280
+  card_height: 720
+
+thresholds:
+  strong_up_pct: 1.0
+  moderate_up_pct: 0.3
+  moderate_down_pct: -0.3
+  strong_down_pct: -1.0
+
+messages:
+  unavailable: "未確認"
+  no_signal: "目立ったシグナルは未確認"
