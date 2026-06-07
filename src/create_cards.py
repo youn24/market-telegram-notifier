@@ -72,10 +72,14 @@ def _draw_speech_bubble(
     box: tuple[int, int, int, int],
     fill: str,
     outline: str,
+    tail_side: str = "left",
 ) -> None:
     left, top, right, bottom = box
     draw.rounded_rectangle(box, radius=30, fill=fill, outline=outline, width=4)
-    tail = [(left + 40, bottom - 16), (left + 92, bottom - 16), (left + 60, bottom + 26)]
+    if tail_side == "right":
+        tail = [(right - 92, bottom - 16), (right - 40, bottom - 16), (right - 58, bottom + 28)]
+    else:
+        tail = [(left + 40, bottom - 16), (left + 92, bottom - 16), (left + 60, bottom + 26)]
     draw.polygon(tail, fill=fill, outline=outline)
 
 
@@ -108,22 +112,10 @@ def create_summary_card(
     draw.rounded_rectangle((52, 154, 764, 676), radius=30, fill="#ffffff", outline="#f0ddd0", width=2)
     draw.rounded_rectangle((792, 154, 1230, 676), radius=30, fill="#fff6f2", outline="#f0ddd0", width=2)
 
-    bubble_box = (82, 184, 734, 344)
-    _draw_speech_bubble(draw, bubble_box, bubble_fill, accent)
-    draw.text((106, 196), speaker_name, fill="#7a3c20", font=strong_font)
-
-    comment_y = 244
-    for line in summary.get("commentary", []):
-        wrapped = _wrap_japanese_text(draw, line, body_font, 590)
-        for wrapped_line in wrapped:
-            draw.text((108, comment_y), wrapped_line, fill="#111827", font=body_font)
-            comment_y += 36
-        comment_y += 8
-
-    panel_y = 384
+    panel_y = 190
     draw.text((84, panel_y), "きょうの数字", fill="#7a3c20", font=strong_font)
     panel_y += 50
-    for metric in summary.get("metrics", [])[:4]:
+    for metric in summary.get("metrics", [])[:5]:
         draw.rounded_rectangle((84, panel_y - 8, 730, panel_y + 36), radius=18, fill="#fff8f3", outline="#f4e2d8", width=1)
         wrapped_metric = _wrap_japanese_text(draw, metric.replace("- ", "", 1), body_font, 600)
         text_y = panel_y + 2
@@ -132,23 +124,34 @@ def create_summary_card(
             text_y += 28
         panel_y += 60
 
-    chip_y = 196
-    draw.text((824, chip_y), "AIの見立て", fill="#7a3c20", font=strong_font)
-    chip_y += 54
-    for signal in summary.get("signals", [])[:4]:
-        draw.rounded_rectangle((824, chip_y, 1198, chip_y + 58), radius=20, fill="#ffffff", outline="#f0ddd0", width=2)
+    draw.text((824, 190), "AIのひとこと", fill="#7a3c20", font=strong_font)
+    bubble_box = (824, 238, 1198, 448)
+    _draw_speech_bubble(draw, bubble_box, bubble_fill, accent, tail_side="right")
+    draw.text((848, 254), speaker_name, fill="#7a3c20", font=strong_font)
+
+    comment_y = 308
+    for line in summary.get("commentary", [])[:2]:
+        wrapped = _wrap_japanese_text(draw, line, body_font, 314)
+        for wrapped_line in wrapped[:3]:
+            draw.text((848, comment_y), wrapped_line, fill="#111827", font=body_font)
+            comment_y += 34
+        comment_y += 4
+
+    signal_y = 474
+    draw.text((824, signal_y), summary.get("speaker_role", "市況を整理"), fill="#9a5d40", font=small_font)
+    signal_y += 34
+    for signal in summary.get("signals", [])[:2]:
+        draw.rounded_rectangle((824, signal_y, 1198, signal_y + 54), radius=18, fill="#ffffff", outline="#f0ddd0", width=2)
         signal_text = signal.replace("- ", "", 1)
-        wrapped_signal = _wrap_japanese_text(draw, signal_text, chip_font, 334)
-        line_y = chip_y + 11
+        wrapped_signal = _wrap_japanese_text(draw, signal_text, chip_font, 326)
+        line_y = signal_y + 12
         for signal_line in wrapped_signal[:2]:
             draw.text((844, line_y), signal_line, fill="#334155", font=chip_font)
-            line_y += 22
-        chip_y += 70
+            line_y += 20
+        signal_y += 64
 
-    draw.text((824, 504), summary.get("speaker_role", "市況を整理"), fill="#9a5d40", font=small_font)
-    draw.text((824, 536), "やさしく要点をまとめます", fill="#9a5d40", font=small_font)
     if character_asset is not None:
-        _paste_character(image, character_asset, (804, 270, 1210, 664))
+        _paste_character(image, character_asset, (850, 470, 1190, 664))
 
     path = output_dir / f"{task_id}_card.png"
     image.convert("RGB").save(path)
