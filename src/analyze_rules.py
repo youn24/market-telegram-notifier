@@ -32,6 +32,52 @@ def _classify_change(change_pct: float | None, thresholds: dict[str, Any]) -> st
     return "横ばい圏"
 
 
+def _speaker_profile(task_id: str, task_config: dict[str, Any]) -> tuple[str, str]:
+    category = task_config.get("category", "")
+    if category == "fx":
+        return "ゾウAI", "為替の流れを先に読む"
+    if category == "japan_market":
+        return "カワウソAI", "日本株の地合いをすばやく整理"
+    return "マーケットAI", "市況をコンパクトに要約"
+
+
+def _build_commentary(
+    task_id: str,
+    task_config: dict[str, Any],
+    raw_data: dict[str, Any],
+    thresholds: dict[str, Any],
+) -> list[str]:
+    comments: list[str] = []
+    positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
+    negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+
+    if positive_items:
+        joined = "、".join(item["label"] for item in positive_items[:3])
+        comments.append(f"{joined}がしっかりしていて、買いが入りやすい地合いです。")
+    if negative_items:
+        joined = "、".join(item["label"] for item in negative_items[:3])
+        comments.append(f"{joined}は弱めなので、追いかけ買いは少し慎重に見たいです。")
+
+    unavailable_labels = []
+    for label, note in raw_data.get("highlights", {}).items():
+        if "未確認" in str(note):
+            pretty = {
+                "speculative_positions": "投機筋",
+                "earnings": "決算",
+                "ratings": "信用評価",
+                "supply_demand": "需給",
+                "analysis": "分析",
+            }.get(label, label)
+            unavailable_labels.append(pretty)
+    if unavailable_labels:
+        comments.append(f"{'、'.join(unavailable_labels)}は未確認なので、ここは断定せずに進めます。")
+
+    if not comments:
+        comments.append("大きな偏りはまだ薄く、初動の勢いと押し目の質を見たい場面です。")
+
+    return comments[:3]
+
+
 def build_summary(
     task_id: str,
     task_config: dict[str, Any],
@@ -41,6 +87,7 @@ def build_summary(
     thresholds = rules.get("thresholds", {})
     default_no_signal = rules.get("messages", {}).get("no_signal", "目立ったシグナルは未確認")
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    speaker_name, speaker_role = _speaker_profile(task_id, task_config)
 
     lines: list[str] = []
     signal_lines: list[str] = []
@@ -79,9 +126,14 @@ def build_summary(
         ]
     )
 
+    commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
+
     return {
         "generated_at": generated_at,
         "body": body,
         "signals": signal_lines,
         "metrics": lines,
+        "speaker_name": speaker_name,
+        "speaker_role": speaker_role,
+        "commentary": commentary,
     }
