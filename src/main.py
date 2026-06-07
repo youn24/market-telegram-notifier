@@ -65,6 +65,10 @@ def is_task_runnable(task_config: dict[str, Any], now: datetime) -> tuple[bool, 
     return True, ""
 
 
+def should_ignore_weekday_check() -> bool:
+    return os.getenv("GITHUB_EVENT_NAME", "").strip() == "workflow_dispatch"
+
+
 def fetch_task_data(context: TaskContext) -> dict[str, Any]:
     category = context.task_config.get("category")
 
@@ -127,7 +131,11 @@ def main() -> int:
 
     context = load_configs(args.task)
     now = datetime.now()
-    runnable, reason = is_task_runnable(context.task_config, now)
+    if should_ignore_weekday_check():
+        runnable, reason = True, "workflow_dispatch のため曜日チェックをスキップしました"
+        logging.info(reason)
+    else:
+        runnable, reason = is_task_runnable(context.task_config, now)
     if not runnable:
         logging.info(reason)
         return 0
