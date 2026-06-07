@@ -3,7 +3,7 @@ name: Japan Morning
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 8 * * 1-5"
+    - cron: "30 9 * * 1-5"
       timezone: "Asia/Tokyo"
 
 jobs:

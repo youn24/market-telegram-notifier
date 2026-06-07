@@ -9,8 +9,8 @@ fx_morning:
 japan_morning:
   enabled: true
   category: japan_market
-  title: "8:00 朝の日本株・決算・海外市場・信用評価チェック"
-  run_at: "08:00"
+  title: "9:30 寄り後の日本株・海外市場・材料確認"
+  run_at: "09:30"
   weekdays: [1, 2, 3, 4, 5]
   chart_symbols: ["NIKKEI225", "TOPIX", "SP500", "NASDAQ"]
 
