@@ -41,6 +41,19 @@ def _speaker_profile(task_id: str, task_config: dict[str, Any]) -> tuple[str, st
     return "マーケットAI", "市況をコンパクトに要約"
 
 
+def _market_tone(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> str:
+    change_values = [item.get("change_pct") for item in raw_data.get("items", []) if item.get("change_pct") is not None]
+    if not change_values:
+        return "neutral"
+
+    average_change = sum(change_values) / len(change_values)
+    if average_change >= thresholds.get("moderate_up_pct", 0.3):
+        return "bull"
+    if average_change <= thresholds.get("moderate_down_pct", -0.3):
+        return "bear"
+    return "neutral"
+
+
 def _build_commentary(
     task_id: str,
     task_config: dict[str, Any],
@@ -50,13 +63,16 @@ def _build_commentary(
     comments: list[str] = []
     positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
     negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+    tone = _market_tone(raw_data, thresholds)
 
-    if positive_items:
+    if tone == "bull" and positive_items:
         joined = "、".join(item["label"] for item in positive_items[:3])
         comments.append(f"{joined}がしっかりしていて、買いが入りやすい地合いです。")
-    if negative_items:
+    if tone == "bear" and negative_items:
         joined = "、".join(item["label"] for item in negative_items[:3])
         comments.append(f"{joined}は弱めなので、追いかけ買いは少し慎重に見たいです。")
+    if tone == "neutral":
+        comments.append("強弱がまだ混ざっていて、飛びつくより見極めを優先したい場面です。")
 
     unavailable_labels = []
     for label, note in raw_data.get("highlights", {}).items():
@@ -88,6 +104,7 @@ def build_summary(
     default_no_signal = rules.get("messages", {}).get("no_signal", "目立ったシグナルは未確認")
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
+    tone = _market_tone(raw_data, thresholds)
 
     lines: list[str] = []
     signal_lines: list[str] = []
@@ -136,4 +153,5 @@ def build_summary(
         "speaker_name": speaker_name,
         "speaker_role": speaker_role,
         "commentary": commentary,
+        "market_tone": tone,
     }

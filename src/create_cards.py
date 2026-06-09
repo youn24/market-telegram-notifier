@@ -47,12 +47,22 @@ def _speaker_style(task_id: str) -> tuple[str, str, str]:
     return "マーケットAI", "#eef2ff", "#64748b"
 
 
-def _character_asset(task_id: str, output_dir: Path) -> Path | None:
+def _character_asset(task_id: str, output_dir: Path, summary: dict[str, Any]) -> Path | None:
     root = output_dir.parent.parent
+    tone = summary.get("market_tone", "neutral")
     if task_id.startswith("fx"):
-        candidate = root / "assets" / "characters" / "elephant-ai.png"
+        mapping = {
+            "bull": root / "assets" / "characters" / "elephant-bull.png",
+            "bear": root / "assets" / "characters" / "elephant-bear.png",
+            "neutral": root / "assets" / "characters" / "elephant-ai.png",
+        }
     else:
-        candidate = root / "assets" / "characters" / "otter-ai.png"
+        mapping = {
+            "bull": root / "assets" / "characters" / "otter-bull.png",
+            "bear": root / "assets" / "characters" / "otter-bear.png",
+            "neutral": root / "assets" / "characters" / "otter-ai.png",
+        }
+    candidate = mapping.get(tone, next(iter(mapping.values())))
     return candidate if candidate.exists() else None
 
 
@@ -102,7 +112,7 @@ def create_summary_card(
     chip_font = _load_font(21)
 
     speaker_name, bubble_fill, accent = _speaker_style(task_id)
-    character_asset = _character_asset(task_id, output_dir)
+    character_asset = _character_asset(task_id, output_dir, summary)
 
     draw.rounded_rectangle((20, 20, width - 20, height - 20), radius=38, fill="#fffaf7", outline="#efcfbf", width=3)
     draw.rounded_rectangle((36, 36, width - 36, 132), radius=28, fill="#fff2ea", outline="#efcfbf", width=2)
