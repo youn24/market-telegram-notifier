@@ -36,7 +36,7 @@ def create_market_chart(
             continue
     plt.rcParams["font.family"] = ["Noto Sans CJK JP", "Meiryo", "Yu Gothic", "DejaVu Sans"]
 
-    fig, axes = plt.subplots(1, 2, figsize=(width, height), dpi=100, gridspec_kw={"width_ratios": [2.1, 1]})
+    fig, axes = plt.subplots(2, 1, figsize=(width, height), dpi=100, gridspec_kw={"height_ratios": [2, 1]})
     fig.patch.set_facecolor("#0f172a")
     ax = axes[0]
     bar_ax = axes[1]
@@ -51,30 +51,30 @@ def create_market_chart(
         y_values = [point["value"] for point in series]
         ax.plot(x_values, y_values, marker="o", linewidth=2.2, label=item["label"], color=colors[index % len(colors)])
 
-    ax.set_title(task_config.get("title", task_id), color="white", fontsize=18, pad=18)
-    ax.tick_params(axis="x", colors="#cbd5e1", rotation=20)
-    ax.tick_params(axis="y", colors="#cbd5e1")
+    ax.set_title(task_config.get("title", task_id), color="white", fontsize=22, pad=18)
+    ax.tick_params(axis="x", colors="#cbd5e1", rotation=0, labelsize=14)
+    ax.tick_params(axis="y", colors="#cbd5e1", labelsize=14)
     for spine in ax.spines.values():
         spine.set_color("#334155")
     ax.grid(True, alpha=0.18, color="#94a3b8")
-    ax.legend(facecolor="#111827", edgecolor="#334155", labelcolor="white")
+    ax.legend(facecolor="#111827", edgecolor="#334155", labelcolor="white", fontsize=12, loc="upper left")
 
     labels = [item["label"] for item in chart_items]
     changes = [item.get("change_pct") or 0 for item in chart_items]
     bar_colors = ["#22c55e" if value >= 0 else "#ef4444" for value in changes]
     positions = list(range(len(labels)))
-    bar_ax.barh(positions, changes, color=bar_colors, alpha=0.9)
+    bar_ax.barh(positions, changes, color=bar_colors, alpha=0.92, height=0.56)
     bar_ax.set_yticks(positions, labels=labels)
-    bar_ax.tick_params(axis="y", colors="#e2e8f0", labelsize=11)
-    bar_ax.tick_params(axis="x", colors="#cbd5e1")
+    bar_ax.tick_params(axis="y", colors="#e2e8f0", labelsize=14)
+    bar_ax.tick_params(axis="x", colors="#cbd5e1", labelsize=13)
     bar_ax.axvline(0, color="#94a3b8", linewidth=1)
-    bar_ax.set_title("前日比", color="white", fontsize=16, pad=14)
+    bar_ax.set_title("前日比", color="white", fontsize=18, pad=14)
     for spine in bar_ax.spines.values():
         spine.set_color("#334155")
     bar_ax.grid(True, axis="x", alpha=0.18, color="#94a3b8")
     for index, value in enumerate(changes):
         prefix = "+" if value > 0 else ""
-        bar_ax.text(value + (0.05 if value >= 0 else -0.05), index, f"{prefix}{value:.2f}%", color="white", va="center", ha="left" if value >= 0 else "right", fontsize=11)
+        bar_ax.text(value + (0.05 if value >= 0 else -0.05), index, f"{prefix}{value:.2f}%", color="white", va="center", ha="left" if value >= 0 else "right", fontsize=13)
 
     path = output_dir / f"{task_id}_chart.png"
     fig.tight_layout()

@@ -35,10 +35,10 @@ def _classify_change(change_pct: float | None, thresholds: dict[str, Any]) -> st
 def _speaker_profile(task_id: str, task_config: dict[str, Any]) -> tuple[str, str]:
     category = task_config.get("category", "")
     if category == "fx":
-        return "ゾウAI", "為替の流れを先に読む"
+        return "ガネーシャ先生", "為替の流れを先に読む"
     if category == "japan_market":
-        return "カワウソAI", "日本株の地合いをすばやく整理"
-    return "マーケットAI", "市況をコンパクトに要約"
+        return "ガネーシャ先生", "日本株の地合いをすばやく整理"
+    return "ガネーシャ先生", "市況をコンパクトに要約"
 
 
 def _market_tone(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> str:
@@ -52,6 +52,67 @@ def _market_tone(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> str:
     if average_change <= thresholds.get("moderate_down_pct", -0.3):
         return "bear"
     return "neutral"
+
+
+def _theme_block(task_id: str, tone: str, generated_at: str) -> tuple[str, str]:
+    day_seed = int(generated_at[8:10])
+    theme_map = {
+        "fx": [
+            ("本日のテーマ", "通貨の温度差を先に読む"),
+            ("今日の視点", "ドル主導かクロス円主導かを切り分ける"),
+            ("朝の作戦", "飛びつきより流れの継続性を確認する"),
+        ],
+        "japan_market": [
+            ("本日のテーマ", "寄り後の強弱を3分で整理する"),
+            ("今日の視点", "指数より先に主役セクターを探す"),
+            ("朝の作戦", "初動の質と押し目の強さを比べる"),
+        ],
+        "default": [
+            ("本日のテーマ", "数字から先に地合いを読む"),
+            ("今日の視点", "未確認を残したまま断定しない"),
+            ("朝の作戦", "勢いと継続性を分けて考える"),
+        ],
+    }
+    category_key = "fx" if task_id.startswith("fx") else "japan_market" if task_id.startswith("japan") else "default"
+    choices = theme_map[category_key]
+    title, subtitle = choices[day_seed % len(choices)]
+    tone_suffix = {
+        "bull": "強気寄りの地合いを丁寧に追います",
+        "bear": "下振れリスクを先に意識します",
+        "neutral": "様子見と見極めを優先します",
+    }[tone]
+    return title, f"{subtitle} / {tone_suffix}"
+
+
+def _student_question(task_id: str, tone: str) -> str:
+    if task_id.startswith("fx"):
+        if tone == "bull":
+            return "先生、いまは円安の流れに素直についていっていいですか？"
+        if tone == "bear":
+            return "先生、いまは逆張りよりリスク回避を優先した方がいいですか？"
+        return "先生、いまの為替は方向感待ちですか？"
+    if tone == "bull":
+        return "先生、寄り後は強い銘柄を素直に追っていい場面ですか？"
+    if tone == "bear":
+        return "先生、今日は無理に入らず守り寄りで見た方がいいですか？"
+    return "先生、今日は飛びつくより見極め優先ですか？"
+
+
+def _teacher_answer(
+    raw_data: dict[str, Any],
+    thresholds: dict[str, Any],
+    tone: str,
+) -> str:
+    positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
+    negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+
+    if tone == "bull" and positive_items:
+        joined = "、".join(item["label"] for item in positive_items[:2])
+        return f"{joined}が支えているので、強い銘柄を押し目で拾えるかを見たいです。"
+    if tone == "bear" and negative_items:
+        joined = "、".join(item["label"] for item in negative_items[:2])
+        return f"{joined}が重いので、今日は無理に追わず戻り売りと見送りを優先します。"
+    return "まだ強弱が混ざっています。最初の値動きだけで決めず、続く側に寄せていきましょう。"
 
 
 def _build_commentary(
@@ -105,6 +166,7 @@ def build_summary(
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
     tone = _market_tone(raw_data, thresholds)
+    theme_title, theme_subtitle = _theme_block(task_id, tone, generated_at)
 
     lines: list[str] = []
     signal_lines: list[str] = []
@@ -144,6 +206,11 @@ def build_summary(
     )
 
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
+    student_name = "カワウソくん"
+    dialogue = [
+        {"speaker": student_name, "role": "student", "text": _student_question(task_id, tone)},
+        {"speaker": speaker_name, "role": "teacher", "text": _teacher_answer(raw_data, thresholds, tone)},
+    ]
 
     return {
         "generated_at": generated_at,
@@ -154,4 +221,8 @@ def build_summary(
         "speaker_role": speaker_role,
         "commentary": commentary,
         "market_tone": tone,
+        "student_name": student_name,
+        "theme_title": theme_title,
+        "theme_subtitle": theme_subtitle,
+        "dialogue": dialogue,
     }

@@ -1,9 +1,9 @@
 common:
   lookback_days: 5
-  chart_width: 1280
-  chart_height: 720
-  card_width: 1280
-  card_height: 720
+  chart_width: 1080
+  chart_height: 1350
+  card_width: 1080
+  card_height: 1920
 
 thresholds:
   strong_up_pct: 1.0
