@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from analyze_rules import build_summary
 from create_cards import create_summary_card
 from create_charts import create_market_chart
+from create_report import create_market_report
 from fetch_earnings import fetch_earnings_snapshot
 from fetch_fx import fetch_fx_snapshot
 from fetch_japan_market import fetch_japan_market_snapshot
@@ -23,6 +24,7 @@ from openai_summary import maybe_generate_openai_summary
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 OUTPUT_DIR = BASE_DIR / "output"
+SITE_DIR = BASE_DIR / "site"
 
 
 @dataclass
@@ -88,6 +90,19 @@ def ensure_output_dir(task_id: str) -> Path:
     return task_output
 
 
+def report_url() -> str | None:
+    explicit = os.getenv("REPORT_BASE_URL", "").strip()
+    if explicit:
+        return explicit.rstrip("/") + "/"
+
+    repository = os.getenv("GITHUB_REPOSITORY", "").strip()
+    if not repository or "/" not in repository:
+        return None
+
+    owner, repo = repository.split("/", 1)
+    return f"https://{owner}.github.io/{repo}/"
+
+
 def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
     summary = build_summary(context.task_id, context.task_config, raw_data, context.rules)
@@ -99,13 +114,28 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
     output_dir = ensure_output_dir(context.task_id)
     chart_path = create_market_chart(context.task_id, context.task_config, raw_data, context.rules, output_dir)
     card_path = create_summary_card(context.task_id, context.task_config, summary, context.rules, output_dir)
+    create_market_report(context.task_id, context.task_config, summary, raw_data, SITE_DIR, card_path, chart_path)
+
+    link = report_url()
+    headline = {
+        "bull": "結論: 強気寄り",
+        "bear": "結論: 警戒",
+        "neutral": "結論: 様子見",
+    }.get(summary.get("market_tone", "neutral"), "結論: 様子見")
 
     text = "\n".join(
         [
             f"【{context.task_config.get('title', context.task_id)}】",
+            headline,
             f"日時: {summary['generated_at']}",
             "",
-            summary["body"],
+            "ガネーシャ先生:",
+            *summary.get("commentary", [])[:2],
+            "",
+            "カワウソくん:",
+            summary.get("dialogue", [{}])[0].get("text", ""),
+            "",
+            f"レポート: {link}" if link else "",
         ]
     )
 
