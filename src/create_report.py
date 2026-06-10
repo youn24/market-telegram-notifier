@@ -51,6 +51,13 @@ def _render_dialogue(dialogue: list[dict[str, str]]) -> str:
     return "\n".join(blocks)
 
 
+def _render_bullets(items: list[str], css_class: str) -> str:
+    rows = []
+    for item in items:
+        rows.append(f'<li class="{css_class}">{_safe(item)}</li>')
+    return "\n".join(rows)
+
+
 def _copy_if_exists(source: Path | None, destination: Path) -> str | None:
     if source is None or not source.exists():
         return None
@@ -75,10 +82,11 @@ def create_market_report(
     copied_chart = _copy_if_exists(chart_path, assets_dir / "market-chart.png")
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
-    dialogue_html = _render_dialogue(summary.get("dialogue", []))
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
     signals_html = _render_list(summary.get("signals", [])[:4], "signal-item")
     commentary_html = _render_list(summary.get("commentary", [])[:3], "memo-item")
+    opportunity_html = _render_bullets(summary.get("opportunities", [])[:3], "opportunity-item")
+    caution_html = _render_bullets(summary.get("cautions", [])[:3], "caution-item")
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
@@ -114,8 +122,8 @@ def create_market_report(
       --text: #2c241f;
       --sub: #7a6558;
       --accent: {market_color};
-      --teacher: #fff0d8;
-      --student: #fff5ef;
+      --good: #166534;
+      --bad: #991b1b;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -167,25 +175,6 @@ def create_market_report(
       font-size: 12px;
       color: var(--sub);
     }}
-    .talk {{
-      border-radius: 22px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
-      border: 1px solid var(--line);
-    }}
-    .talk.teacher {{ background: var(--teacher); }}
-    .talk.student {{ background: var(--student); }}
-    .talk-role {{
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--sub);
-      margin-bottom: 8px;
-    }}
-    .talk-text {{
-      font-size: 18px;
-      line-height: 1.8;
-      font-weight: 700;
-    }}
     h2 {{
       font-size: 21px;
       margin: 0 0 12px;
@@ -226,6 +215,26 @@ def create_market_report(
       line-height: 1.7;
       font-size: 15px;
     }}
+    .opportunity-item, .caution-item {{
+      border-radius: 16px;
+      padding: 12px 14px;
+      line-height: 1.8;
+      font-size: 15px;
+      border: 1px solid var(--line);
+      margin-bottom: 10px;
+      list-style: none;
+    }}
+    .opportunity-item {{ background: #f0fdf4; color: var(--good); }}
+    .caution-item {{ background: #fef2f2; color: var(--bad); }}
+    .conclusion {{
+      font-size: 19px;
+      line-height: 1.8;
+      font-weight: 700;
+      background: #fff9f4;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }}
     .table {{
       display: grid;
       gap: 8px;
@@ -263,8 +272,8 @@ def create_market_report(
     </section>
 
     <section class="panel">
-      <h2>先生と生徒の会話</h2>
-      {dialogue_html}
+      <h2>結論</h2>
+      <div class="conclusion">{_safe(summary.get("conclusion_text", ""))}</div>
     </section>
 
     <section class="panel">
@@ -293,7 +302,17 @@ def create_market_report(
     </section>
 
     <section class="panel">
-      <h2>シグナル</h2>
+      <h2>注目ポイント</h2>
+      <ul class="signal-list">
+        {opportunity_html}
+      </ul>
+      <ul class="signal-list">
+        {caution_html}
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>シグナル一覧</h2>
       <ul class="signal-list">
         {signals_html}
       </ul>
