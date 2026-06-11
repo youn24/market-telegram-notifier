@@ -34,6 +34,29 @@ japan_market:
     ratings: "信用評価・レーティングは無料版では未確認"
     supply_demand: "需給データは無料版では未確認"
 
+macro:
+  fred_series:
+    US10Y:
+      series_id: "DGS10"
+      label: "米10年債利回り"
+      unit: "%"
+    SOFR:
+      series_id: "SOFR"
+      label: "SOFR"
+      unit: "%"
+    VIX:
+      series_id: "VIXCLS"
+      label: "VIX"
+      unit: ""
+    DOLLAR_BROAD:
+      series_id: "DTWEXBGS"
+      label: "ドル指数(広義)"
+      unit: ""
+    YIELD_2S10S:
+      series_id: "T10Y2Y"
+      label: "2年10年スプレッド"
+      unit: "%"
+
 earnings:
   unavailable_items:
     analysis: "引け後決算分析は初期設定では未確認"

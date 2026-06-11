@@ -5,6 +5,8 @@ from typing import Any
 import pandas as pd
 import yfinance as yf
 
+from fetch_macro import fetch_macro_snapshot
+
 
 def _safe_pct_change(current: float | None, previous: float | None) -> float | None:
     if current is None or previous in (None, 0):
@@ -86,6 +88,7 @@ def fetch_fx_snapshot(
         "task_id": task_id,
         "section": "fx",
         "items": items,
+        "macro_items": fetch_macro_snapshot(task_config, sources),
         "highlights": {
             "speculative_positions": unavailable_items.get("speculative_positions", "未確認"),
         },

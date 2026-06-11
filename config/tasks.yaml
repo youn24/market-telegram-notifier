@@ -5,6 +5,7 @@ fx_morning:
   run_at: "07:00"
   weekdays: [1, 2, 3, 4, 5, 6]
   chart_symbols: ["USDJPY", "EURJPY", "DXY"]
+  macro_series: ["US10Y", "SOFR", "DOLLAR_BROAD", "VIX"]
 
 japan_morning:
   enabled: true
@@ -13,6 +14,7 @@ japan_morning:
   run_at: "09:30"
   weekdays: [1, 2, 3, 4, 5]
   chart_symbols: ["NIKKEI225", "TOPIX", "SP500", "NASDAQ"]
+  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S"]
 
 japan_midday:
   enabled: false
@@ -29,6 +31,7 @@ japan_close:
   run_at: "17:00"
   weekdays: [1, 2, 3, 4, 5]
   chart_symbols: ["NIKKEI225", "TOPIX", "USDJPY"]
+  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S"]
 
 earnings_close:
   enabled: false

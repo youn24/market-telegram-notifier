@@ -115,6 +115,49 @@ def _teacher_answer(
     return "まだ強弱が混ざっています。最初の値動きだけで決めず、続く側に寄せていきましょう。"
 
 
+def _conclusion_block(raw_data: dict[str, Any], thresholds: dict[str, Any], tone: str) -> tuple[str, str]:
+    positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
+    negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+
+    if tone == "bull":
+        anchor = "、".join(item["label"] for item in positive_items[:2]) or "主要指数"
+        return "強気寄り", f"{anchor}が支えていて、押し目を待ちながら強い流れについていきたい局面です。"
+    if tone == "bear":
+        anchor = "、".join(item["label"] for item in negative_items[:2]) or "主要指数"
+        return "警戒", f"{anchor}が重く、今日は無理に追わず戻り売りと見送りの精度を優先したい局面です。"
+    return "様子見", "強弱がまだ割れていて、初動だけで決めず継続する側が見えるまで待ちたい局面です。"
+
+
+def _build_watchpoints(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> tuple[list[str], list[str]]:
+    opportunities: list[str] = []
+    cautions: list[str] = []
+
+    for item in raw_data.get("items", []):
+        label = item.get("label", "")
+        change_pct = item.get("change_pct")
+        if change_pct is None:
+            continue
+        if change_pct >= thresholds.get("moderate_up_pct", 0.3):
+            opportunities.append(f"{label}は{change_pct:+.2f}%で底堅く、強い側の継続を確認したいです。")
+        elif change_pct <= thresholds.get("moderate_down_pct", -0.3):
+            cautions.append(f"{label}は{change_pct:+.2f}%で弱く、逆張りより戻りの重さを見たいです。")
+
+    if not opportunities:
+        opportunities.append("飛びつくほどの強い追い風はまだ限定的で、押し目の質を見て判断したいです。")
+    if not cautions:
+        cautions.append("大崩れのシグナルは強くなく、過度に弱気へ寄せすぎないことも大事です。")
+
+    return opportunities[:3], cautions[:3]
+
+
+def _format_macro_value(item: dict[str, Any]) -> str:
+    current = item.get("current")
+    unit = item.get("unit", "")
+    if current is None:
+        return "未確認"
+    return f"{current:,.2f}{unit}"
+
+
 def _build_commentary(
     task_id: str,
     task_config: dict[str, Any],
@@ -182,6 +225,12 @@ def build_summary(
         signal = _classify_change(item.get("change_pct"), thresholds)
         signal_lines.append(f"- {item['label']}: {signal}")
 
+    for item in raw_data.get("macro_items", []):
+        line = f"- {item['label']}: {_format_macro_value(item)} ({_format_pct(item.get('change_pct'))})"
+        lines.append(line)
+        signal = _classify_change(item.get("change_pct"), thresholds)
+        signal_lines.append(f"- {item['label']}: {signal}")
+
     for label, note in raw_data.get("highlights", {}).items():
         pretty = {
             "speculative_positions": "投機筋",
@@ -211,6 +260,8 @@ def build_summary(
         {"speaker": student_name, "role": "student", "text": _student_question(task_id, tone)},
         {"speaker": speaker_name, "role": "teacher", "text": _teacher_answer(raw_data, thresholds, tone)},
     ]
+    conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)
+    opportunities, cautions = _build_watchpoints(raw_data, thresholds)
 
     return {
         "generated_at": generated_at,
@@ -225,4 +276,8 @@ def build_summary(
         "theme_title": theme_title,
         "theme_subtitle": theme_subtitle,
         "dialogue": dialogue,
+        "conclusion_label": conclusion_label,
+        "conclusion_text": conclusion_text,
+        "opportunities": opportunities,
+        "cautions": cautions,
     }
