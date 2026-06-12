@@ -33,6 +33,21 @@ def _render_metrics(metrics: list[str]) -> str:
     return "\n".join(cards)
 
 
+def _render_digest_tiles(summary: dict[str, Any], raw_data: dict[str, Any]) -> str:
+    macro_count = len([item for item in raw_data.get("macro_items", []) if item.get("status") == "ok"])
+    market_count = len([item for item in raw_data.get("items", []) if item.get("status") == "ok"])
+    tiles = [
+        ("結論", summary.get("conclusion_label", "様子見"), "tile-accent"),
+        ("取得済み", f"市場 {market_count} / マクロ {macro_count}", "tile-blue"),
+        ("注目", "金利・VIX・為替", "tile-green"),
+        ("作戦", "3シナリオで確認", "tile-gold"),
+    ]
+    return "\n".join(
+        f'<div class="digest-tile {klass}"><span>{_safe(label)}</span><strong>{_safe(value)}</strong></div>'
+        for label, value, klass in tiles
+    )
+
+
 def _render_sparkline(series: list[dict[str, Any]], color: str) -> str:
     values = [point.get("value") for point in series if point.get("value") is not None]
     if len(values) < 2:
@@ -122,6 +137,7 @@ def create_market_report(
     copied_chart = _copy_if_exists(chart_path, assets_dir / "market-chart.png")
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
+    digest_tiles_html = _render_digest_tiles(summary, raw_data)
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
     market_metrics_html = _render_metrics(summary.get("market_metrics", [])[:5])
     macro_cards_html = _render_macro_cards(raw_data.get("macro_items", []))
@@ -160,12 +176,15 @@ def create_market_report(
   <title>{_safe(task_config.get("title", task_id))}</title>
   <style>
     :root {{
-      --bg: #fff8f1;
-      --panel: #fffdfa;
-      --line: #eed7c4;
-      --text: #2c241f;
-      --sub: #7a6558;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --line: #dbe4ef;
+      --text: #172033;
+      --sub: #64748b;
       --accent: {market_color};
+      --navy: #172033;
+      --blue: #2563eb;
+      --gold: #f59e0b;
       --good: #166534;
       --bad: #991b1b;
     }}
@@ -173,7 +192,10 @@ def create_market_report(
     body {{
       margin: 0;
       font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
-      background: linear-gradient(180deg, #fff9f4 0%, #fff1e4 100%);
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, transparent 28%),
+        linear-gradient(225deg, rgba(245, 158, 11, 0.12) 0%, transparent 24%),
+        var(--bg);
       color: var(--text);
     }}
     .page {{
@@ -184,15 +206,38 @@ def create_market_report(
     .hero, .panel {{
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 24px;
+      border-radius: 18px;
       padding: 18px;
-      box-shadow: 0 8px 24px rgba(132, 92, 63, 0.08);
+      box-shadow: 0 14px 34px rgba(23, 32, 51, 0.10);
       margin-bottom: 14px;
+    }}
+    .hero {{
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        linear-gradient(135deg, #172033 0%, #243b67 48%, #0f766e 100%);
+      border: 0;
+    }}
+    .hero::after {{
+      content: "";
+      position: absolute;
+      right: -42px;
+      top: -42px;
+      width: 168px;
+      height: 168px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.28);
+    }}
+    .hero > * {{
+      position: relative;
+      z-index: 1;
     }}
     .eyebrow {{
       font-size: 12px;
-      color: var(--sub);
+      color: #facc15;
       margin-bottom: 8px;
+      font-weight: 800;
     }}
     h1 {{
       font-size: 28px;
@@ -202,7 +247,7 @@ def create_market_report(
     .theme {{
       font-size: 15px;
       line-height: 1.7;
-      color: var(--sub);
+      color: #dbeafe;
       margin-bottom: 14px;
     }}
     .badge {{
@@ -217,11 +262,42 @@ def create_market_report(
     }}
     .meta {{
       font-size: 12px;
-      color: var(--sub);
+      color: #cbd5e1;
     }}
+    .digest-strip {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0 0;
+    }}
+    .digest-tile {{
+      border-radius: 16px;
+      padding: 12px;
+      color: white;
+      min-height: 74px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+    }}
+    .digest-tile span {{
+      font-size: 11px;
+      opacity: .86;
+      font-weight: 800;
+    }}
+    .digest-tile strong {{
+      font-size: 16px;
+      line-height: 1.35;
+    }}
+    .tile-accent {{ background: linear-gradient(135deg, var(--accent), #111827); }}
+    .tile-blue {{ background: linear-gradient(135deg, #2563eb, #06b6d4); }}
+    .tile-green {{ background: linear-gradient(135deg, #059669, #84cc16); }}
+    .tile-gold {{ background: linear-gradient(135deg, #f59e0b, #ef4444); }}
     h2 {{
       font-size: 21px;
       margin: 0 0 12px;
+      border-left: 6px solid var(--accent);
+      padding-left: 10px;
     }}
     .metric-grid {{
       display: grid;
@@ -235,10 +311,11 @@ def create_market_report(
     }}
     .macro-card {{
       border: 1px solid var(--line);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 12px;
-      background: #fff9f4;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       min-height: 152px;
+      box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
     }}
     .macro-name {{
       color: var(--sub);
@@ -260,7 +337,7 @@ def create_market_report(
       width: 100%;
       height: 48px;
       margin-top: 8px;
-      background: #ffffff;
+      background: #eef2ff;
       border-radius: 12px;
     }}
     .sparkline-empty {{
@@ -270,9 +347,9 @@ def create_market_report(
     }}
     .metric-card {{
       border: 1px solid var(--line);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 12px 14px;
-      background: #fff9f4;
+      background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
       font-size: 16px;
       line-height: 1.6;
       font-weight: 700;
@@ -292,9 +369,9 @@ def create_market_report(
       gap: 10px;
     }}
     .signal-item, .memo-item {{
-      background: #fff9f4;
+      background: #f8fafc;
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 14px;
       padding: 12px 14px;
       line-height: 1.7;
       font-size: 15px;
@@ -323,13 +400,13 @@ def create_market_report(
     }}
     .talk {{
       border: 1px solid var(--line);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 12px 14px;
       margin-bottom: 10px;
       line-height: 1.8;
     }}
-    .talk.teacher {{ background: #fff7ed; }}
-    .talk.student {{ background: #f8fafc; }}
+    .talk.teacher {{ background: linear-gradient(90deg, #fff7ed, #ffffff); border-left: 6px solid #f59e0b; }}
+    .talk.student {{ background: linear-gradient(90deg, #eff6ff, #ffffff); border-left: 6px solid #2563eb; }}
     .talk-role {{
       color: var(--sub);
       font-size: 12px;
@@ -344,9 +421,9 @@ def create_market_report(
       font-size: 19px;
       line-height: 1.8;
       font-weight: 700;
-      background: #fff9f4;
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(245, 158, 11, .14), rgba(37, 99, 235, .09));
+      border: 1px solid rgba(245, 158, 11, .35);
+      border-radius: 16px;
       padding: 14px 16px;
     }}
     .table {{
@@ -366,9 +443,9 @@ def create_market_report(
       padding: 0 6px;
     }}
     .table-row {{
-      background: #fff9f4;
+      background: #ffffff;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 12px;
       padding: 12px;
       font-size: 15px;
       font-weight: 700;
@@ -383,6 +460,9 @@ def create_market_report(
       <div class="badge">{_safe(market_label)}</div>
       <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
       <div class="meta">更新: {_safe(summary.get("generated_at", ""))}</div>
+      <div class="digest-strip">
+        {digest_tiles_html}
+      </div>
     </section>
 
     <section class="panel">
