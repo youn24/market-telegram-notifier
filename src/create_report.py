@@ -5,6 +5,9 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+HERO_ASSET = BASE_DIR / "assets" / "design" / "market-digest-hero.png"
+
 
 def _safe(text: str) -> str:
     return html.escape(text, quote=True)
@@ -135,6 +138,7 @@ def create_market_report(
 
     copied_card = _copy_if_exists(card_path, assets_dir / "summary-card.png")
     copied_chart = _copy_if_exists(chart_path, assets_dir / "market-chart.png")
+    copied_hero = _copy_if_exists(HERO_ASSET, assets_dir / "market-digest-hero.png")
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
@@ -150,6 +154,11 @@ def create_market_report(
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
+    hero_background = (
+        f"linear-gradient(135deg, rgba(23, 32, 51, .92), rgba(15, 118, 110, .72)), url('assets/{copied_hero}')"
+        if copied_hero
+        else "linear-gradient(135deg, #172033 0%, #243b67 48%, #0f766e 100%)"
+    )
 
     item_rows = []
     for item in raw_data.get("items", []):
@@ -215,8 +224,9 @@ def create_market_report(
       position: relative;
       overflow: hidden;
       color: white;
-      background:
-        linear-gradient(135deg, #172033 0%, #243b67 48%, #0f766e 100%);
+      background: {hero_background};
+      background-size: cover;
+      background-position: center;
       border: 0;
     }}
     .hero::after {{

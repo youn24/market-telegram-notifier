@@ -15,6 +15,7 @@ from analyze_rules import build_summary
 from create_cards import create_summary_card
 from create_charts import create_market_chart
 from create_report import create_market_report
+from design_director import build_design_direction, write_design_handoff
 from fetch_earnings import fetch_earnings_snapshot
 from fetch_fx import fetch_fx_snapshot
 from fetch_japan_market import fetch_japan_market_snapshot
@@ -117,6 +118,8 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
     chart_path = create_market_chart(context.task_id, context.task_config, raw_data, context.rules, output_dir)
     card_path = create_summary_card(context.task_id, context.task_config, summary, context.rules, output_dir)
     create_market_report(context.task_id, context.task_config, summary, raw_data, SITE_DIR, card_path, chart_path)
+    design_direction = build_design_direction(context.task_id, context.task_config, summary, raw_data)
+    write_design_handoff(SITE_DIR, design_direction)
 
     link = report_url()
     headline = {
