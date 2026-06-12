@@ -9,18 +9,25 @@ import requests
 def _build_prompt(summary: dict[str, Any]) -> str:
     return "\n".join(
         [
-            "あなたは日本語の金融市場アシスタントです。",
-            "以下の要点を見て、デイトレ目線で分かりやすい要約を3つの短い箇条書きで返してください。",
-            "1行目は全体の地合い、2行目は注目点、3行目は注意点にしてください。",
-            "数値の推測は禁止です。未確認の情報は未確認と書いてください。",
-            "強い断定は避けつつ、実戦で読みやすい日本語にしてください。",
+            "You are a Japanese financial market assistant for a day trader.",
+            "Return the answer in natural Japanese only.",
+            "Write exactly three short bullet points.",
+            "Bullet 1: overall market tone.",
+            "Bullet 2: what to watch.",
+            "Bullet 3: what to avoid or be careful about.",
+            "Do not invent numbers. If data is unavailable, say 未確認.",
+            "Use practical trading language, but avoid overconfident claims.",
             "",
-            f"結論ラベル: {summary.get('conclusion_label', '')}",
-            f"結論文: {summary.get('conclusion_text', '')}",
-            "主要数値:",
-            *summary.get("metrics", []),
-            "シグナル:",
+            f"Conclusion label: {summary.get('conclusion_label', '')}",
+            f"Conclusion text: {summary.get('conclusion_text', '')}",
+            "Macro metrics:",
+            *summary.get("macro_metrics", []),
+            "Market metrics:",
+            *summary.get("market_metrics", summary.get("metrics", [])),
+            "Signals:",
             *summary.get("signals", []),
+            "Scenarios:",
+            *summary.get("scenarios", []),
         ]
     )
 
@@ -38,17 +45,7 @@ def _maybe_generate_gemini_summary(summary: dict[str, Any]) -> str | None:
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             params={"key": api_key},
             headers={"Content-Type": "application/json"},
-            json={
-                "contents": [
-                    {
-                        "parts": [
-                            {
-                                "text": prompt,
-                            }
-                        ]
-                    }
-                ]
-            },
+            json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=60,
         )
         response.raise_for_status()
@@ -79,10 +76,7 @@ def _maybe_generate_openai_summary(summary: dict[str, Any]) -> str | None:
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            json={
-                "model": model,
-                "input": prompt,
-            },
+            json={"model": model, "input": prompt},
             timeout=60,
         )
         response.raise_for_status()

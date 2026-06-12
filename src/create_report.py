@@ -33,6 +33,46 @@ def _render_metrics(metrics: list[str]) -> str:
     return "\n".join(cards)
 
 
+def _render_sparkline(series: list[dict[str, Any]], color: str) -> str:
+    values = [point.get("value") for point in series if point.get("value") is not None]
+    if len(values) < 2:
+        return '<div class="sparkline-empty">未確認</div>'
+
+    min_value = min(values)
+    max_value = max(values)
+    span = max(max_value - min_value, 0.000001)
+    points = []
+    for index, value in enumerate(values):
+        x = 8 + index * (104 / max(1, len(values) - 1))
+        y = 44 - ((value - min_value) / span) * 32
+        points.append(f"{x:.1f},{y:.1f}")
+    return f'<svg class="sparkline" viewBox="0 0 120 52" aria-hidden="true"><polyline points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+
+def _render_macro_cards(items: list[dict[str, Any]]) -> str:
+    cards: list[str] = []
+    for item in items:
+        change = item.get("change_pct")
+        change_text = "未確認" if change is None else f"{change:+.2f}%"
+        current = item.get("current")
+        unit = item.get("unit", "")
+        value_text = "未確認" if current is None else f"{current:,.2f}{unit}"
+        color = "#16a34a" if (change or 0) >= 0 else "#dc2626"
+        cards.append(
+            "\n".join(
+                [
+                    '<article class="macro-card">',
+                    f'  <div class="macro-name">{_safe(item.get("label", ""))}</div>',
+                    f'  <div class="macro-value">{_safe(value_text)}</div>',
+                    f'  <div class="macro-change" style="color:{color}">{_safe(change_text)}</div>',
+                    f'  {_render_sparkline(item.get("series", []), color)}',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(cards) or '<div class="metric-card">マクロ指標は未確認</div>'
+
+
 def _render_dialogue(dialogue: list[dict[str, str]]) -> str:
     blocks: list[str] = []
     for item in dialogue:
@@ -83,10 +123,14 @@ def create_market_report(
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
+    market_metrics_html = _render_metrics(summary.get("market_metrics", [])[:5])
+    macro_cards_html = _render_macro_cards(raw_data.get("macro_items", []))
     signals_html = _render_list(summary.get("signals", [])[:4], "signal-item")
     commentary_html = _render_list(summary.get("commentary", [])[:3], "memo-item")
     opportunity_html = _render_bullets(summary.get("opportunities", [])[:3], "opportunity-item")
     caution_html = _render_bullets(summary.get("cautions", [])[:3], "caution-item")
+    dialogue_html = _render_dialogue(summary.get("dialogue", []))
+    scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
@@ -184,6 +228,46 @@ def create_market_report(
       grid-template-columns: 1fr;
       gap: 10px;
     }}
+    .macro-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }}
+    .macro-card {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+      background: #fff9f4;
+      min-height: 152px;
+    }}
+    .macro-name {{
+      color: var(--sub);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }}
+    .macro-value {{
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 6px;
+    }}
+    .macro-change {{
+      font-size: 14px;
+      font-weight: 800;
+      margin-top: 2px;
+    }}
+    .sparkline {{
+      width: 100%;
+      height: 48px;
+      margin-top: 8px;
+      background: #ffffff;
+      border-radius: 12px;
+    }}
+    .sparkline-empty {{
+      margin-top: 12px;
+      color: var(--sub);
+      font-size: 13px;
+    }}
     .metric-card {{
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -226,6 +310,36 @@ def create_market_report(
     }}
     .opportunity-item {{ background: #f0fdf4; color: var(--good); }}
     .caution-item {{ background: #fef2f2; color: var(--bad); }}
+    .scenario-item {{
+      border-radius: 16px;
+      padding: 12px 14px;
+      line-height: 1.8;
+      font-size: 15px;
+      border: 1px solid var(--line);
+      margin-bottom: 10px;
+      list-style: none;
+      background: #eff6ff;
+      color: #1e3a8a;
+    }}
+    .talk {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      line-height: 1.8;
+    }}
+    .talk.teacher {{ background: #fff7ed; }}
+    .talk.student {{ background: #f8fafc; }}
+    .talk-role {{
+      color: var(--sub);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
+    .talk-text {{
+      font-size: 15px;
+      font-weight: 700;
+    }}
     .conclusion {{
       font-size: 19px;
       line-height: 1.8;
@@ -284,13 +398,32 @@ def create_market_report(
     </section>
 
     <section class="panel">
+      <h2>金利・VIX・マクロ比較</h2>
+      <div class="macro-grid">
+        {macro_cards_html}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>ガネーシャ先生とカワウソくん</h2>
+      {dialogue_html}
+    </section>
+
+    <section class="panel">
       <h2>チャート</h2>
       {chart_img}
       {card_img}
     </section>
 
     <section class="panel">
-      <h2>主要項目一覧</h2>
+      <h2>指数・為替一覧</h2>
+      <div class="metric-grid">
+        {market_metrics_html}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>取得データ一覧</h2>
       <div class="table">
         <div class="table-head">
           <div>項目</div>
@@ -299,6 +432,13 @@ def create_market_report(
         </div>
         {"".join(item_rows)}
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>今日の3シナリオ</h2>
+      <ul class="signal-list">
+        {scenario_html}
+      </ul>
     </section>
 
     <section class="panel">

@@ -129,9 +129,9 @@ def create_summary_card(
         point_y += 10
 
     draw.rounded_rectangle((38, 1468, width - 38, 1868), radius=34, fill="#ffffff", outline="#f0ddd0", width=2)
-    draw.text((64, 1502), "先生の要約", fill="#7a3c20", font=strong_font)
+    draw.text((64, 1502), "今日の3シナリオ", fill="#7a3c20", font=strong_font)
     memo_y = 1568
-    for line in summary.get("commentary", [])[:3]:
+    for line in summary.get("scenarios", [])[:3]:
         wrapped = _wrap_japanese_text(draw, f"・{line}", small_font, width - 120)
         for wrapped_line in wrapped[:2]:
             draw.text((82, memo_y), wrapped_line, fill="#475569", font=small_font)

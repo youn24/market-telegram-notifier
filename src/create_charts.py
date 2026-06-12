@@ -18,6 +18,8 @@ def create_market_chart(
     output_dir: Path,
 ) -> Path | None:
     chart_items = [item for item in raw_data.get("items", []) if item.get("series")]
+    macro_chart_items = [item for item in raw_data.get("macro_items", []) if item.get("series")]
+    chart_items = (chart_items + macro_chart_items)[:8]
     if not chart_items:
         return None
 
@@ -48,10 +50,12 @@ def create_market_chart(
     for index, item in enumerate(chart_items):
         series = item["series"]
         x_values = [point["date"] for point in series]
-        y_values = [point["value"] for point in series]
+        raw_values = [point["value"] for point in series]
+        base_value = raw_values[0] if raw_values and raw_values[0] else 1
+        y_values = [(value / base_value) * 100 for value in raw_values]
         ax.plot(x_values, y_values, marker="o", linewidth=2.2, label=item["label"], color=colors[index % len(colors)])
 
-    ax.set_title(task_config.get("title", task_id), color="white", fontsize=22, pad=18)
+    ax.set_title(f"{task_config.get('title', task_id)} 日足比較(初日=100)", color="white", fontsize=22, pad=18)
     ax.tick_params(axis="x", colors="#cbd5e1", rotation=0, labelsize=14)
     ax.tick_params(axis="y", colors="#cbd5e1", labelsize=14)
     for spine in ax.spines.values():

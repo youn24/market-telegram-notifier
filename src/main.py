@@ -110,6 +110,8 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
     openai_text = maybe_generate_openai_summary(summary)
     if openai_text:
         summary["body"] = openai_text
+        summary["ai_summary"] = [line.strip(" -・") for line in openai_text.splitlines() if line.strip()]
+        summary["commentary"] = summary["ai_summary"][:3]
 
     output_dir = ensure_output_dir(context.task_id)
     chart_path = create_market_chart(context.task_id, context.task_config, raw_data, context.rules, output_dir)

@@ -118,14 +118,16 @@ def _teacher_answer(
 def _conclusion_block(raw_data: dict[str, Any], thresholds: dict[str, Any], tone: str) -> tuple[str, str]:
     positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
     negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+    macro_reads = _macro_read(raw_data)
+    action = _action_label(tone, raw_data)
 
     if tone == "bull":
         anchor = "、".join(item["label"] for item in positive_items[:2]) or "主要指数"
-        return "強気寄り", f"{anchor}が支えていて、押し目を待ちながら強い流れについていきたい局面です。"
+        return action, f"{anchor}が支えています。{macro_reads[0]} 強い側は見ますが、飛びつきより押し目と継続性を優先します。"
     if tone == "bear":
         anchor = "、".join(item["label"] for item in negative_items[:2]) or "主要指数"
-        return "警戒", f"{anchor}が重く、今日は無理に追わず戻り売りと見送りの精度を優先したい局面です。"
-    return "様子見", "強弱がまだ割れていて、初動だけで決めず継続する側が見えるまで待ちたい局面です。"
+        return action, f"{anchor}が重いです。{macro_reads[0]} 今日は無理に追わず、戻りの重さと見送りの精度を優先します。"
+    return action, f"強弱がまだ割れています。{macro_reads[0]} 初動だけで決めず、継続する側が見えるまで待ちたい局面です。"
 
 
 def _build_watchpoints(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -158,6 +160,90 @@ def _format_macro_value(item: dict[str, Any]) -> str:
     return f"{current:,.2f}{unit}"
 
 
+def _format_item_line(item: dict[str, Any]) -> str:
+    return (
+        f"- {item['label']}: "
+        f"{_format_number(item.get('current'))} "
+        f"({_format_pct(item.get('change_pct'))})"
+    )
+
+
+def _format_macro_line(item: dict[str, Any]) -> str:
+    return f"- {item['label']}: {_format_macro_value(item)} ({_format_pct(item.get('change_pct'))})"
+
+
+def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
+    for item in items:
+        if item.get("key") == key:
+            return item
+    return None
+
+
+def _macro_read(raw_data: dict[str, Any]) -> list[str]:
+    macro_items = raw_data.get("macro_items", [])
+    reads: list[str] = []
+
+    us10y = _find_item(macro_items, "US10Y")
+    vix = _find_item(macro_items, "VIX")
+    spread = _find_item(macro_items, "YIELD_2S10S")
+    dollar = _find_item(macro_items, "DOLLAR_BROAD")
+
+    if us10y and us10y.get("change_pct") is not None:
+        direction = "上昇" if us10y["change_pct"] > 0 else "低下"
+        reads.append(f"米10年金利は{direction}方向で、株のバリュエーションには影響を見たいです。")
+    if vix and vix.get("change_pct") is not None:
+        if vix["change_pct"] >= 3:
+            reads.append("VIXが上がっており、リスク回避の気配を少し強めに見ます。")
+        elif vix["change_pct"] <= -3:
+            reads.append("VIXが低下しており、過度な警戒は少し和らいでいます。")
+    if spread and spread.get("current") is not None:
+        reads.append(f"2年10年スプレッドは{spread['current']:.2f}%で、金利差の方向を確認します。")
+    if dollar and dollar.get("change_pct") is not None:
+        direction = "強含み" if dollar["change_pct"] > 0 else "弱含み"
+        reads.append(f"ドル指数は{direction}で、為替と外需株への影響を見ます。")
+
+    if not reads:
+        reads.append("マクロ指標は未確認が残るため、指数と為替の実測値を優先します。")
+    return reads[:3]
+
+
+def _action_label(tone: str, raw_data: dict[str, Any]) -> str:
+    macro_items = raw_data.get("macro_items", [])
+    vix = _find_item(macro_items, "VIX")
+    us10y = _find_item(macro_items, "US10Y")
+
+    if tone == "bull":
+        if vix and (vix.get("change_pct") or 0) > 3:
+            return "強気寄りだが追いかけ注意"
+        return "押し目待ち"
+    if tone == "bear":
+        return "守り寄り"
+    if us10y and abs(us10y.get("change_pct") or 0) > 2:
+        return "金利確認"
+    return "様子見"
+
+
+def _build_scenarios(raw_data: dict[str, Any], tone: str) -> list[str]:
+    macro_reads = _macro_read(raw_data)
+    if tone == "bull":
+        return [
+            "強気シナリオ: 指数が崩れず、強い銘柄の押し目が浅いなら順張り候補を探します。",
+            "中立シナリオ: 初動だけ強く、その後の出来高が細るなら見送りを優先します。",
+            f"警戒シナリオ: {macro_reads[0]}",
+        ]
+    if tone == "bear":
+        return [
+            "強気シナリオ: 下げてもすぐ戻し、主力株に買い直しが入るなら短期反発を確認します。",
+            "中立シナリオ: 指数が方向感なく上下するなら、無理に枚数を増やしません。",
+            "警戒シナリオ: 弱い指数が戻りで止まるなら、追いかけ買いは避けます。",
+        ]
+    return [
+        "強気シナリオ: 直近高値を抜く銘柄が増えるなら、強い側に少し寄せます。",
+        "中立シナリオ: 強弱が割れるなら、出来高と継続性が出るまで待ちます。",
+        "警戒シナリオ: 指数より先に個別が崩れるなら、守りを優先します。",
+    ]
+
+
 def _build_commentary(
     task_id: str,
     task_config: dict[str, Any],
@@ -177,6 +263,8 @@ def _build_commentary(
         comments.append(f"{joined}は弱めなので、追いかけ買いは少し慎重に見たいです。")
     if tone == "neutral":
         comments.append("強弱がまだ混ざっていて、飛びつくより見極めを優先したい場面です。")
+
+    comments.extend(_macro_read(raw_data))
 
     unavailable_labels = []
     for label, note in raw_data.get("highlights", {}).items():
@@ -212,21 +300,21 @@ def build_summary(
     theme_title, theme_subtitle = _theme_block(task_id, tone, generated_at)
 
     lines: list[str] = []
+    market_lines: list[str] = []
+    macro_lines: list[str] = []
     signal_lines: list[str] = []
 
     for item in raw_data.get("items", []):
-        line = (
-            f"- {item['label']}: "
-            f"{_format_number(item.get('current'))} "
-            f"({ _format_pct(item.get('change_pct')) })"
-        )
+        line = _format_item_line(item)
+        market_lines.append(line)
         lines.append(line)
 
         signal = _classify_change(item.get("change_pct"), thresholds)
         signal_lines.append(f"- {item['label']}: {signal}")
 
     for item in raw_data.get("macro_items", []):
-        line = f"- {item['label']}: {_format_macro_value(item)} ({_format_pct(item.get('change_pct'))})"
+        line = _format_macro_line(item)
+        macro_lines.append(line)
         lines.append(line)
         signal = _classify_change(item.get("change_pct"), thresholds)
         signal_lines.append(f"- {item['label']}: {signal}")
@@ -262,12 +350,16 @@ def build_summary(
     ]
     conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)
     opportunities, cautions = _build_watchpoints(raw_data, thresholds)
+    scenarios = _build_scenarios(raw_data, tone)
+    key_metrics = macro_lines[:4] + market_lines[:4]
 
     return {
         "generated_at": generated_at,
         "body": body,
         "signals": signal_lines,
-        "metrics": lines,
+        "metrics": key_metrics + [line for line in lines if line not in key_metrics],
+        "market_metrics": market_lines,
+        "macro_metrics": macro_lines,
         "speaker_name": speaker_name,
         "speaker_role": speaker_role,
         "commentary": commentary,
@@ -280,4 +372,5 @@ def build_summary(
         "conclusion_text": conclusion_text,
         "opportunities": opportunities,
         "cautions": cautions,
+        "scenarios": scenarios,
     }
