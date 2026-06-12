@@ -8,6 +8,17 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent.parent
 HERO_ASSET = BASE_DIR / "assets" / "design" / "market-digest-hero.png"
 
+WORLD_BOARD_GROUPS = [
+    ("日本", ["NIKKEI225", "TOPIX"]),
+    ("米国", ["DOW", "SP500", "NASDAQ", "RUSSELL2000"]),
+    ("欧州", ["FTSE100", "DAX", "CAC40"]),
+    ("アジア", ["HANGSENG", "SHANGHAI", "KOSPI"]),
+    ("為替・商品", ["USDJPY", "EURUSD", "GOLD", "WTI"]),
+    ("金利・リスク", ["US10Y", "SOFR", "VIX", "YIELD_2S10S", "DOLLAR_BROAD"]),
+]
+
+CHART_BOARD_KEYS = ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "GOLD", "WTI"]
+
 
 def _safe(text: str) -> str:
     return html.escape(text, quote=True)
@@ -67,6 +78,33 @@ def _render_sparkline(series: list[dict[str, Any]], color: str) -> str:
     return f'<svg class="sparkline" viewBox="0 0 120 52" aria-hidden="true"><polyline points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 
+def _render_price_sparkline(series: list[dict[str, Any]], color: str) -> str:
+    values = [point.get("value") for point in series if point.get("value") is not None]
+    if len(values) < 2:
+        return '<div class="price-chart-empty">未確認</div>'
+
+    min_value = min(values)
+    max_value = max(values)
+    span = max(max_value - min_value, 0.000001)
+    points = []
+    area_points = ["8,86"]
+    for index, value in enumerate(values):
+        x = 8 + index * (176 / max(1, len(values) - 1))
+        y = 78 - ((value - min_value) / span) * 58
+        points.append(f"{x:.1f},{y:.1f}")
+        area_points.append(f"{x:.1f},{y:.1f}")
+    area_points.append("184,86")
+    return "\n".join(
+        [
+            '<svg class="price-chart" viewBox="0 0 192 92" aria-hidden="true">',
+            f'  <polygon points="{" ".join(area_points)}" fill="{color}" opacity="0.14"/>',
+            f'  <polyline points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+            '  <line x1="8" y1="86" x2="184" y2="86" stroke="rgba(100,116,139,.24)" stroke-width="2"/>',
+            "</svg>",
+        ]
+    )
+
+
 def _render_macro_cards(items: list[dict[str, Any]]) -> str:
     cards: list[str] = []
     for item in items:
@@ -89,6 +127,110 @@ def _render_macro_cards(items: list[dict[str, Any]]) -> str:
             )
         )
     return "\n".join(cards) or '<div class="metric-card">マクロ指標は未確認</div>'
+
+
+def _format_tile_value(item: dict[str, Any]) -> str:
+    current = item.get("current")
+    unit = item.get("unit", "")
+    if current is None:
+        return "未確認"
+    return f"{current:,.2f}{unit}"
+
+
+def _format_tile_change(item: dict[str, Any]) -> str:
+    change = item.get("change_pct")
+    if change is None:
+        return "未確認"
+    sign = "+" if change > 0 else ""
+    return f"{sign}{change:.2f}%"
+
+
+def _render_market_tile(item: dict[str, Any] | None, key: str) -> str:
+    if item is None:
+        return (
+            '<div class="market-tile unavailable">'
+            f'<span>{_safe(key)}</span><strong>未確認</strong><em>データなし</em></div>'
+        )
+
+    change = item.get("change_pct")
+    direction = "up" if (change or 0) >= 0 else "down"
+    return "\n".join(
+        [
+            f'<div class="market-tile {direction}">',
+            f'  <span>{_safe(item.get("label", key))}</span>',
+            f'  <strong>{_safe(_format_tile_value(item))}</strong>',
+            f'  <em>{_safe(_format_tile_change(item))}</em>',
+            "</div>",
+        ]
+    )
+
+
+def _render_world_board(raw_data: dict[str, Any]) -> str:
+    lookup = {item.get("key"): item for item in raw_data.get("items", []) + raw_data.get("macro_items", [])}
+    sections: list[str] = []
+    for group_name, keys in WORLD_BOARD_GROUPS:
+        tiles = "\n".join(_render_market_tile(lookup.get(key), key) for key in keys)
+        sections.append(
+            "\n".join(
+                [
+                    '<section class="board-group">',
+                    f'  <h3>{_safe(group_name)}</h3>',
+                    f'  <div class="market-grid">{tiles}</div>',
+                    "</section>",
+                ]
+            )
+        )
+    return "\n".join(sections)
+
+
+def _render_chart_board(raw_data: dict[str, Any]) -> str:
+    lookup = {item.get("key"): item for item in raw_data.get("items", []) + raw_data.get("macro_items", [])}
+    cards: list[str] = []
+    for key in CHART_BOARD_KEYS:
+        item = lookup.get(key)
+        if not item:
+            continue
+        change = item.get("change_pct")
+        direction = "up" if (change or 0) >= 0 else "down"
+        color = "#16a34a" if direction == "up" else "#dc2626"
+        cards.append(
+            "\n".join(
+                [
+                    f'<article class="chart-card {direction}">',
+                    '  <div class="chart-card-head">',
+                    f'    <span>{_safe(item.get("label", key))}</span>',
+                    f'    <em>{_safe(_format_tile_change(item))}</em>',
+                    "  </div>",
+                    f'  <strong>{_safe(_format_tile_value(item))}</strong>',
+                    f'  {_render_price_sparkline(item.get("series", []), color)}',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(cards) or '<div class="metric-card">チャートは未確認</div>'
+
+
+def _render_ticker_strip(raw_data: dict[str, Any]) -> str:
+    lookup = {item.get("key"): item for item in raw_data.get("items", []) + raw_data.get("macro_items", [])}
+    keys = ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX"]
+    chips: list[str] = []
+    for key in keys:
+        item = lookup.get(key)
+        if not item:
+            continue
+        change = item.get("change_pct")
+        direction = "up" if (change or 0) >= 0 else "down"
+        chips.append(
+            "\n".join(
+                [
+                    f'<div class="ticker-chip {direction}">',
+                    f'  <span>{_safe(item.get("label", key))}</span>',
+                    f'  <strong>{_safe(_format_tile_change(item))}</strong>',
+                    "</div>",
+                ]
+            )
+        )
+    return "\n".join(chips)
 
 
 def _render_dialogue(dialogue: list[dict[str, str]]) -> str:
@@ -142,6 +284,9 @@ def create_market_report(
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
+    world_board_html = _render_world_board(raw_data)
+    chart_board_html = _render_chart_board(raw_data)
+    ticker_strip_html = _render_ticker_strip(raw_data)
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
     market_metrics_html = _render_metrics(summary.get("market_metrics", [])[:5])
     macro_cards_html = _render_macro_cards(raw_data.get("macro_items", []))
@@ -154,11 +299,7 @@ def create_market_report(
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
-    hero_background = (
-        f"linear-gradient(135deg, rgba(23, 32, 51, .92), rgba(15, 118, 110, .72)), url('assets/{copied_hero}')"
-        if copied_hero
-        else "linear-gradient(135deg, #172033 0%, #243b67 48%, #0f766e 100%)"
-    )
+    hero_background = "#ffffff"
 
     item_rows = []
     for item in raw_data.get("items", []):
@@ -185,15 +326,12 @@ def create_market_report(
   <title>{_safe(task_config.get("title", task_id))}</title>
   <style>
     :root {{
-      --bg: #f5f7fb;
+      --bg: #f3f4f6;
       --panel: #ffffff;
-      --line: #dbe4ef;
-      --text: #172033;
-      --sub: #64748b;
+      --line: #e5e7eb;
+      --text: #111827;
+      --sub: #6b7280;
       --accent: {market_color};
-      --navy: #172033;
-      --blue: #2563eb;
-      --gold: #f59e0b;
       --good: #166534;
       --bad: #991b1b;
     }}
@@ -201,43 +339,28 @@ def create_market_report(
     body {{
       margin: 0;
       font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
-      background:
-        linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, transparent 28%),
-        linear-gradient(225deg, rgba(245, 158, 11, 0.12) 0%, transparent 24%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
     }}
     .page {{
-      max-width: 540px;
+      max-width: 760px;
       margin: 0 auto;
-      padding: 18px 14px 48px;
+      padding: 12px 10px 40px;
     }}
     .hero, .panel {{
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 14px 34px rgba(23, 32, 51, 0.10);
-      margin-bottom: 14px;
+      border-radius: 4px;
+      padding: 12px;
+      box-shadow: none;
+      margin-bottom: 8px;
     }}
     .hero {{
       position: relative;
       overflow: hidden;
-      color: white;
+      color: var(--text);
       background: {hero_background};
-      background-size: cover;
-      background-position: center;
-      border: 0;
-    }}
-    .hero::after {{
-      content: "";
-      position: absolute;
-      right: -42px;
-      top: -42px;
-      width: 168px;
-      height: 168px;
-      border-radius: 50%;
-      background: rgba(245, 158, 11, 0.28);
+      border-left: 6px solid var(--accent);
     }}
     .hero > * {{
       position: relative;
@@ -245,50 +368,52 @@ def create_market_report(
     }}
     .eyebrow {{
       font-size: 12px;
-      color: #facc15;
-      margin-bottom: 8px;
+      color: var(--sub);
+      margin-bottom: 6px;
       font-weight: 800;
     }}
     h1 {{
-      font-size: 28px;
+      font-size: 22px;
       line-height: 1.25;
-      margin: 0 0 10px;
+      margin: 0 0 8px;
     }}
     .theme {{
-      font-size: 15px;
-      line-height: 1.7;
-      color: #dbeafe;
-      margin-bottom: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--sub);
+      margin-bottom: 10px;
     }}
     .badge {{
       display: inline-block;
-      background: var(--accent);
-      color: white;
+      background: #ffffff;
+      color: var(--accent);
+      border: 1px solid var(--accent);
       border-radius: 999px;
-      padding: 8px 14px;
+      padding: 5px 10px;
       font-weight: 700;
-      font-size: 14px;
-      margin-bottom: 12px;
+      font-size: 13px;
+      margin-bottom: 10px;
     }}
     .meta {{
       font-size: 12px;
-      color: #cbd5e1;
+      color: var(--sub);
     }}
     .digest-strip {{
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin: 14px 0 0;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 6px;
+      margin: 8px 0 0;
     }}
     .digest-tile {{
-      border-radius: 16px;
-      padding: 12px;
-      color: white;
-      min-height: 74px;
+      border-radius: 4px;
+      padding: 8px;
+      color: var(--text);
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      min-height: 56px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
     }}
     .digest-tile span {{
       font-size: 11px;
@@ -299,16 +424,158 @@ def create_market_report(
       font-size: 16px;
       line-height: 1.35;
     }}
-    .tile-accent {{ background: linear-gradient(135deg, var(--accent), #111827); }}
-    .tile-blue {{ background: linear-gradient(135deg, #2563eb, #06b6d4); }}
-    .tile-green {{ background: linear-gradient(135deg, #059669, #84cc16); }}
-    .tile-gold {{ background: linear-gradient(135deg, #f59e0b, #ef4444); }}
-    h2 {{
-      font-size: 21px;
-      margin: 0 0 12px;
-      border-left: 6px solid var(--accent);
-      padding-left: 10px;
+    .tile-accent, .tile-blue, .tile-green, .tile-gold {{ border-left: 4px solid var(--accent); }}
+    .ticker-strip {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
     }}
+    .ticker-chip {{
+      min-height: 48px;
+      border-radius: 4px;
+      padding: 7px;
+      color: var(--text);
+      background: #ffffff;
+      border: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }}
+    .ticker-chip span {{
+      font-size: 10px;
+      font-weight: 800;
+      opacity: .9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .ticker-chip strong {{
+      font-size: 14px;
+      line-height: 1;
+    }}
+    .ticker-chip.up {{ border-left: 4px solid #16a34a; }}
+    .ticker-chip.down {{ border-left: 4px solid #dc2626; }}
+    .ticker-chip.up strong {{ color: #166534; }}
+    .ticker-chip.down strong {{ color: #991b1b; }}
+    h2 {{
+      font-size: 18px;
+      margin: 0 0 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 0 8px;
+    }}
+    h3 {{
+      font-size: 15px;
+      margin: 0 0 8px;
+      color: var(--sub);
+    }}
+    .world-board {{
+      display: grid;
+      gap: 8px;
+    }}
+    .chart-board {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 8px;
+    }}
+    .chart-card {{
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px;
+      background: #ffffff;
+      box-shadow: none;
+      min-height: 148px;
+      overflow: hidden;
+    }}
+    .chart-card-head {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }}
+    .chart-card-head span {{
+      color: var(--sub);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .chart-card-head em {{
+      font-style: normal;
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .chart-card.up .chart-card-head em {{ color: #16a34a; }}
+    .chart-card.down .chart-card-head em {{ color: #dc2626; }}
+    .chart-card strong {{
+      display: block;
+      font-size: 20px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }}
+    .price-chart {{
+      width: 100%;
+      height: 82px;
+      border-radius: 4px;
+      background:
+        repeating-linear-gradient(0deg, rgba(148,163,184,.18) 0, rgba(148,163,184,.18) 1px, transparent 1px, transparent 22px);
+    }}
+    .price-chart-empty {{
+      display: grid;
+      place-items: center;
+      height: 92px;
+      color: var(--sub);
+      border-radius: 12px;
+      background: #f8fafc;
+      font-size: 13px;
+      font-weight: 800;
+    }}
+    .board-group {{
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px;
+      background: #ffffff;
+    }}
+    .market-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+      gap: 6px;
+    }}
+    .market-tile {{
+      min-height: 62px;
+      border-radius: 4px;
+      padding: 7px;
+      color: var(--text);
+      background: #ffffff;
+      border: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }}
+    .market-tile span {{
+      font-size: 10px;
+      font-weight: 800;
+      opacity: .92;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .market-tile strong {{
+      font-size: 15px;
+      line-height: 1.2;
+    }}
+    .market-tile em {{
+      font-style: normal;
+      font-size: 13px;
+      font-weight: 900;
+    }}
+    .market-tile.up {{ border-left: 4px solid #16a34a; }}
+    .market-tile.down {{ border-left: 4px solid #dc2626; }}
+    .market-tile.unavailable {{ border-left: 4px solid #64748b; }}
+    .market-tile.up em {{ color: #166534; }}
+    .market-tile.down em {{ color: #991b1b; }}
     .metric-grid {{
       display: grid;
       grid-template-columns: 1fr;
@@ -316,16 +583,16 @@ def create_market_report(
     }}
     .macro-grid {{
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
     }}
     .macro-card {{
       border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 12px;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 4px;
+      padding: 8px;
+      background: #ffffff;
       min-height: 152px;
-      box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
+      box-shadow: none;
     }}
     .macro-name {{
       color: var(--sub);
@@ -357,9 +624,9 @@ def create_market_report(
     }}
     .metric-card {{
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 12px 14px;
-      background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+      background: #ffffff;
       font-size: 16px;
       line-height: 1.6;
       font-weight: 700;
@@ -367,7 +634,7 @@ def create_market_report(
     .section-image {{
       width: 100%;
       display: block;
-      border-radius: 18px;
+      border-radius: 4px;
       border: 1px solid var(--line);
       margin-top: 12px;
     }}
@@ -381,13 +648,13 @@ def create_market_report(
     .signal-item, .memo-item {{
       background: #f8fafc;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 4px;
       padding: 12px 14px;
       line-height: 1.7;
       font-size: 15px;
     }}
     .opportunity-item, .caution-item {{
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 12px 14px;
       line-height: 1.8;
       font-size: 15px;
@@ -395,28 +662,29 @@ def create_market_report(
       margin-bottom: 10px;
       list-style: none;
     }}
-    .opportunity-item {{ background: #f0fdf4; color: var(--good); }}
-    .caution-item {{ background: #fef2f2; color: var(--bad); }}
+    .opportunity-item {{ background: #ffffff; color: var(--good); border-left: 4px solid #16a34a; }}
+    .caution-item {{ background: #ffffff; color: var(--bad); border-left: 4px solid #dc2626; }}
     .scenario-item {{
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 12px 14px;
       line-height: 1.8;
       font-size: 15px;
       border: 1px solid var(--line);
       margin-bottom: 10px;
       list-style: none;
-      background: #eff6ff;
+      background: #ffffff;
+      border-left: 4px solid #2563eb;
       color: #1e3a8a;
     }}
     .talk {{
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 4px;
       padding: 12px 14px;
       margin-bottom: 10px;
       line-height: 1.8;
     }}
-    .talk.teacher {{ background: linear-gradient(90deg, #fff7ed, #ffffff); border-left: 6px solid #f59e0b; }}
-    .talk.student {{ background: linear-gradient(90deg, #eff6ff, #ffffff); border-left: 6px solid #2563eb; }}
+    .talk.teacher {{ background: #ffffff; border-left: 4px solid #f59e0b; }}
+    .talk.student {{ background: #ffffff; border-left: 4px solid #2563eb; }}
     .talk-role {{
       color: var(--sub);
       font-size: 12px;
@@ -431,9 +699,10 @@ def create_market_report(
       font-size: 19px;
       line-height: 1.8;
       font-weight: 700;
-      background: linear-gradient(135deg, rgba(245, 158, 11, .14), rgba(37, 99, 235, .09));
-      border: 1px solid rgba(245, 158, 11, .35);
-      border-radius: 16px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
       padding: 14px 16px;
     }}
     .table {{
@@ -455,7 +724,7 @@ def create_market_report(
     .table-row {{
       background: #ffffff;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 6px;
       padding: 12px;
       font-size: 15px;
       font-weight: 700;
@@ -478,6 +747,23 @@ def create_market_report(
     <section class="panel">
       <h2>結論</h2>
       <div class="conclusion">{_safe(summary.get("conclusion_text", ""))}</div>
+    </section>
+
+    <section class="panel">
+      <h2>世界マーケットボード</h2>
+      <div class="ticker-strip">
+        {ticker_strip_html}
+      </div>
+      <div class="world-board">
+        {world_board_html}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>主要チャートボード</h2>
+      <div class="chart-board">
+        {chart_board_html}
+      </div>
     </section>
 
     <section class="panel">

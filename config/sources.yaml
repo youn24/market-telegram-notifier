@@ -20,15 +20,48 @@ japan_market:
     TOPIX:
       ticker: "^TOPX"
       label: "TOPIX"
+    DOW:
+      ticker: "^DJI"
+      label: "NYダウ"
     SP500:
       ticker: "^GSPC"
       label: "S&P500"
     NASDAQ:
       ticker: "^IXIC"
       label: "NASDAQ"
+    RUSSELL2000:
+      ticker: "^RUT"
+      label: "Russell2000"
+    FTSE100:
+      ticker: "^FTSE"
+      label: "FTSE100"
+    DAX:
+      ticker: "^GDAXI"
+      label: "DAX"
+    CAC40:
+      ticker: "^FCHI"
+      label: "CAC40"
+    HANGSENG:
+      ticker: "^HSI"
+      label: "香港ハンセン"
+    SHANGHAI:
+      ticker: "000001.SS"
+      label: "上海総合"
+    KOSPI:
+      ticker: "^KS11"
+      label: "KOSPI"
     USDJPY:
       ticker: "JPY=X"
       label: "USD/JPY"
+    EURUSD:
+      ticker: "EURUSD=X"
+      label: "EUR/USD"
+    GOLD:
+      ticker: "GC=F"
+      label: "金先物"
+    WTI:
+      ticker: "CL=F"
+      label: "WTI原油"
   unavailable_items:
     earnings: "個別決算一覧は無料版では未確認"
     ratings: "信用評価・レーティングは無料版では未確認"

@@ -41,8 +41,8 @@ def _wrap_japanese_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.Fr
 
 def _draw_gradient_background(image: Image.Image) -> None:
     width, height = image.size
-    top_color = (245, 247, 251, 255)
-    bottom_color = (229, 238, 251, 255)
+    top_color = (248, 250, 252, 255)
+    bottom_color = (248, 250, 252, 255)
     for y in range(height):
         ratio = y / max(1, height - 1)
         color = tuple(int(top_color[i] * (1 - ratio) + bottom_color[i] * ratio) for i in range(4))
@@ -76,7 +76,7 @@ def create_summary_card(
 ) -> Path:
     width = int(rules.get("common", {}).get("card_width", 1280))
     height = int(rules.get("common", {}).get("card_height", 720))
-    image = Image.new("RGBA", (width, height), "#fff8f3")
+    image = Image.new("RGBA", (width, height), "#ffffff")
     _draw_gradient_background(image)
     draw = ImageDraw.Draw(image)
 
@@ -89,17 +89,17 @@ def create_summary_card(
 
     accent, badge_fill, section_fill = _tone_palette(summary.get("market_tone", "neutral"))
 
-    draw.rounded_rectangle((22, 22, width - 22, height - 22), radius=36, fill="#ffffff", outline="#dbe4ef", width=3)
-    draw.rounded_rectangle((34, 34, width - 34, 302), radius=30, fill="#172033", outline="#172033", width=2)
-    _draw_header_pattern(draw, width)
-    draw.text((60, 64), summary.get("theme_title", "本日のテーマ"), fill="#facc15", font=mini_font)
-    draw.text((60, 102), summary.get("theme_subtitle", ""), fill="#dbeafe", font=small_font)
-    draw.text((60, 162), task_config.get("title", task_id), fill="#ffffff", font=title_font)
-    draw.text((62, 232), f"生成時刻: {summary['generated_at']}", fill="#cbd5e1", font=small_font)
-    draw.rounded_rectangle((768, 74, 1020, 222), radius=28, fill=accent, outline="#ffffff", width=3)
-    draw.text((810, 103), summary.get("conclusion_label", "様子見"), fill="#ffffff", font=_load_font(40))
+    draw.rounded_rectangle((22, 22, width - 22, height - 22), radius=18, fill="#ffffff", outline="#dbe4ef", width=2)
+    draw.rounded_rectangle((34, 34, width - 34, 302), radius=14, fill="#ffffff", outline="#dbe4ef", width=2)
+    draw.rectangle((34, 34, 44, 302), fill=accent)
+    draw.text((64, 64), summary.get("theme_title", "本日のテーマ"), fill=accent, font=mini_font)
+    draw.text((64, 102), summary.get("theme_subtitle", ""), fill="#475569", font=small_font)
+    draw.text((64, 162), task_config.get("title", task_id), fill="#111827", font=title_font)
+    draw.text((66, 232), f"生成時刻: {summary['generated_at']}", fill="#64748b", font=small_font)
+    draw.rounded_rectangle((768, 74, 1020, 222), radius=18, fill="#ffffff", outline=accent, width=3)
+    draw.text((810, 103), summary.get("conclusion_label", "様子見"), fill=accent, font=_load_font(40))
 
-    draw.rounded_rectangle((38, 326, width - 38, 560), radius=28, fill=badge_fill, outline=accent, width=3)
+    draw.rounded_rectangle((38, 326, width - 38, 560), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
     draw.text((64, 362), "結論", fill=accent, font=mini_font)
     conclusion_lines = _wrap_japanese_text(draw, summary.get("conclusion_text", ""), chip_font, width - 120)
     conclusion_y = 404
@@ -107,12 +107,12 @@ def create_summary_card(
         draw.text((64, conclusion_y), line, fill="#1f2937", font=chip_font)
         conclusion_y += 34
 
-    draw.rounded_rectangle((38, 590, width - 38, 980), radius=28, fill="#ffffff", outline="#dbe4ef", width=2)
+    draw.rounded_rectangle((38, 590, width - 38, 980), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
     draw.text((64, 624), "重要数字", fill="#172033", font=strong_font)
     panel_y = 690
     for index, metric in enumerate(summary.get("metrics", [])[:4], start=1):
-        draw.rounded_rectangle((64, panel_y - 8, width - 64, panel_y + 72), radius=20, fill=section_fill, outline="#dbe4ef", width=1)
-        draw.rounded_rectangle((82, panel_y + 14, 126, panel_y + 56), radius=16, fill="#ffffff", outline=accent, width=2)
+        draw.rounded_rectangle((64, panel_y - 8, width - 64, panel_y + 72), radius=10, fill="#f8fafc", outline="#e5e7eb", width=1)
+        draw.rounded_rectangle((82, panel_y + 14, 126, panel_y + 56), radius=10, fill="#ffffff", outline=accent, width=2)
         draw.text((96, panel_y + 18), str(index), fill=accent, font=small_font)
         wrapped_metric = _wrap_japanese_text(draw, metric.replace("- ", "", 1), body_font, width - 220)
         text_y = panel_y + 16
@@ -121,7 +121,7 @@ def create_summary_card(
             text_y += 30
         panel_y += 92
 
-    draw.rounded_rectangle((38, 1010, width - 38, 1438), radius=28, fill="#ffffff", outline="#dbe4ef", width=2)
+    draw.rounded_rectangle((38, 1010, width - 38, 1438), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
     draw.text((64, 1044), "注目ポイント", fill="#172033", font=strong_font)
     point_y = 1108
     for line in summary.get("opportunities", [])[:2]:
@@ -138,8 +138,8 @@ def create_summary_card(
             point_y += 28
         point_y += 10
 
-    draw.rounded_rectangle((38, 1468, width - 38, 1868), radius=28, fill="#ffffff", outline="#dbe4ef", width=2)
-    draw.rounded_rectangle((64, 1520, width - 64, 1530), radius=5, fill="#f59e0b")
+    draw.rounded_rectangle((38, 1468, width - 38, 1868), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
+    draw.rounded_rectangle((64, 1520, width - 64, 1530), radius=4, fill=accent)
     draw.text((64, 1502), "今日の3シナリオ", fill="#172033", font=strong_font)
     memo_y = 1568
     for line in summary.get("scenarios", [])[:3]:

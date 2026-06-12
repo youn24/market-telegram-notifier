@@ -13,8 +13,8 @@ japan_morning:
   title: "9:30 寄り後の日本株・海外市場・材料確認"
   run_at: "09:30"
   weekdays: [1, 2, 3, 4, 5]
-  chart_symbols: ["NIKKEI225", "TOPIX", "SP500", "NASDAQ"]
-  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S"]
+  chart_symbols: ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "RUSSELL2000", "FTSE100", "DAX", "HANGSENG", "SHANGHAI", "KOSPI", "USDJPY", "EURUSD", "GOLD", "WTI"]
+  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S", "DOLLAR_BROAD"]
 
 japan_midday:
   enabled: false
@@ -22,7 +22,7 @@ japan_midday:
   title: "12:00 日本市場 前場まとめチェック"
   run_at: "12:00"
   weekdays: [1, 2, 3, 4, 5]
-  chart_symbols: ["NIKKEI225", "TOPIX"]
+  chart_symbols: ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "USDJPY", "GOLD", "WTI"]
 
 japan_close:
   enabled: true
@@ -30,8 +30,8 @@ japan_close:
   title: "17:00 日本市場 大引け後・需給チェック"
   run_at: "17:00"
   weekdays: [1, 2, 3, 4, 5]
-  chart_symbols: ["NIKKEI225", "TOPIX", "USDJPY"]
-  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S"]
+  chart_symbols: ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "HANGSENG", "SHANGHAI", "USDJPY", "EURUSD", "GOLD", "WTI"]
+  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S", "DOLLAR_BROAD"]
 
 earnings_close:
   enabled: false

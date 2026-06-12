@@ -17,9 +17,12 @@ def create_market_chart(
     rules: dict[str, Any],
     output_dir: Path,
 ) -> Path | None:
-    chart_items = [item for item in raw_data.get("items", []) if item.get("series")]
-    macro_chart_items = [item for item in raw_data.get("macro_items", []) if item.get("series")]
-    chart_items = (chart_items + macro_chart_items)[:8]
+    available_items = [item for item in raw_data.get("items", []) + raw_data.get("macro_items", []) if item.get("series")]
+    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "DOLLAR_BROAD"]
+    by_key = {item.get("key"): item for item in available_items}
+    chart_items = [by_key[key] for key in preferred_keys if key in by_key]
+    chart_items.extend(item for item in available_items if item not in chart_items)
+    chart_items = chart_items[:8]
     if not chart_items:
         return None
 
