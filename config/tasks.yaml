@@ -1,11 +1,12 @@
 fx_morning:
   enabled: true
-  category: fx
-  title: "7:00 朝の為替・FX・投機筋チェック"
+  category: japan_market
+  focus: macro
+  title: "7:00 朝の全体マクロ経済チェック"
   run_at: "07:00"
   weekdays: [1, 2, 3, 4, 5, 6]
-  chart_symbols: ["USDJPY", "EURJPY", "DXY"]
-  macro_series: ["US10Y", "SOFR", "DOLLAR_BROAD", "VIX"]
+  chart_symbols: ["DOW", "SP500", "NASDAQ", "RUSSELL2000", "FTSE100", "DAX", "HANGSENG", "KOSPI", "USDJPY", "EURUSD", "GOLD", "WTI"]
+  macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S", "DOLLAR_BROAD"]
 
 japan_morning:
   enabled: true

@@ -34,6 +34,8 @@ def _classify_change(change_pct: float | None, thresholds: dict[str, Any]) -> st
 
 def _speaker_profile(task_id: str, task_config: dict[str, Any]) -> tuple[str, str]:
     category = task_config.get("category", "")
+    if task_config.get("focus") == "macro":
+        return "ガネーシャ先生", "世界の株・金利・為替・商品をまとめて読む"
     if category == "fx":
         return "ガネーシャ先生", "為替の流れを先に読む"
     if category == "japan_market":
@@ -67,13 +69,21 @@ def _theme_block(task_id: str, tone: str, generated_at: str) -> tuple[str, str]:
             ("今日の視点", "指数より先に主役セクターを探す"),
             ("朝の作戦", "初動の質と押し目の強さを比べる"),
         ],
+        "macro": [
+            ("本日のマクロ地図", "米国株・金利・為替・商品からリスク選好を読む"),
+            ("朝の世界地合い", "株・債券・ドル・原油・金の方向を一枚で確認する"),
+            ("寄り前の大局観", "日本株を見る前に世界の資金の流れを整理する"),
+        ],
         "default": [
             ("本日のテーマ", "数字から先に地合いを読む"),
             ("今日の視点", "未確認を残したまま断定しない"),
             ("朝の作戦", "勢いと継続性を分けて考える"),
         ],
     }
-    category_key = "fx" if task_id.startswith("fx") else "japan_market" if task_id.startswith("japan") else "default"
+    if task_config.get("focus") == "macro":
+        category_key = "macro"
+    else:
+        category_key = "fx" if task_id.startswith("fx") else "japan_market" if task_id.startswith("japan") else "default"
     choices = theme_map[category_key]
     title, subtitle = choices[day_seed % len(choices)]
     tone_suffix = {
@@ -84,7 +94,13 @@ def _theme_block(task_id: str, tone: str, generated_at: str) -> tuple[str, str]:
     return title, f"{subtitle} / {tone_suffix}"
 
 
-def _student_question(task_id: str, tone: str) -> str:
+def _student_question(task_id: str, task_config: dict[str, Any], tone: str) -> str:
+    if task_config.get("focus") == "macro":
+        if tone == "bull":
+            return "先生、今日は世界全体ではリスクを取りに行く地合いですか？"
+        if tone == "bear":
+            return "先生、今日は日本株の前に世界のリスク回避を警戒した方がいいですか？"
+        return "先生、今朝の世界地合いは方向感待ちですか？"
     if task_id.startswith("fx"):
         if tone == "bull":
             return "先生、いまは円安の流れに素直についていっていいですか？"
@@ -345,7 +361,7 @@ def build_summary(
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
     student_name = "カワウソくん"
     dialogue = [
-        {"speaker": student_name, "role": "student", "text": _student_question(task_id, tone)},
+        {"speaker": student_name, "role": "student", "text": _student_question(task_id, task_config, tone)},
         {"speaker": speaker_name, "role": "teacher", "text": _teacher_answer(raw_data, thresholds, tone)},
     ]
     conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)

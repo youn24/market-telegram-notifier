@@ -81,15 +81,18 @@ def fetch_japan_market_snapshot(
         items.append(_fetch_symbol(symbol_key, meta.get("ticker", symbol_key), meta.get("label", symbol_key)))
 
     unavailable_items = market_sources.get("unavailable_items", {})
+    highlights = {}
+    if task_config.get("focus") != "macro":
+        highlights = {
+            "earnings": unavailable_items.get("earnings", "未確認"),
+            "ratings": unavailable_items.get("ratings", "未確認"),
+            "supply_demand": unavailable_items.get("supply_demand", "未確認"),
+        }
 
     return {
         "task_id": task_id,
         "section": "japan_market",
         "items": items,
         "macro_items": fetch_macro_snapshot(task_config, sources),
-        "highlights": {
-            "earnings": unavailable_items.get("earnings", "未確認"),
-            "ratings": unavailable_items.get("ratings", "未確認"),
-            "supply_demand": unavailable_items.get("supply_demand", "未確認"),
-        },
+        "highlights": highlights,
     }
