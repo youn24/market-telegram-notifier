@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 from dotenv import load_dotenv
@@ -26,6 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 OUTPUT_DIR = BASE_DIR / "output"
 SITE_DIR = BASE_DIR / "site"
+JST = ZoneInfo("Asia/Tokyo")
 
 
 @dataclass
@@ -104,6 +106,14 @@ def report_url() -> str | None:
     return f"https://{owner}.github.io/{repo}/"
 
 
+def display_title(task_config: dict[str, Any], task_id: str) -> str:
+    title = str(task_config.get("title", task_id)).strip()
+    run_at = str(task_config.get("run_at", "")).strip()
+    if run_at and not title.startswith(run_at):
+        return f"{run_at} {title}"
+    return title
+
+
 def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
     summary = build_summary(context.task_id, context.task_config, raw_data, context.rules)
@@ -122,20 +132,30 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
     write_design_handoff(SITE_DIR, design_direction)
 
     link = report_url()
+    title = display_title(context.task_config, context.task_id)
     headline = {
         "bull": "結論: 強気寄り",
         "bear": "結論: 警戒",
         "neutral": "結論: 様子見",
     }.get(summary.get("market_tone", "neutral"), "結論: 様子見")
+    key_metrics = summary.get("metrics", [])[:4]
+    key_metric_lines = key_metrics if key_metrics else ["- 重要数字: 未確認"]
+    commentary = summary.get("commentary", [])[:3]
+    commentary_lines = commentary if commentary else ["未確認データを残しながら、取れる数字だけで判断します。"]
 
     text = "\n".join(
         [
-            f"【{context.task_config.get('title', context.task_id)}】",
+            "━━━━━━━━━━━━━━",
+            f"【{title}】",
+            f"配信日時: {summary['generated_at']}",
             headline,
-            f"日時: {summary['generated_at']}",
+            "━━━━━━━━━━━━━━",
             "",
-            "ガネーシャ先生:",
-            *summary.get("commentary", [])[:2],
+            "先生の要約",
+            *commentary_lines,
+            "",
+            "重要数字",
+            *key_metric_lines,
             "",
             "カワウソくん:",
             summary.get("dialogue", [{}])[0].get("text", ""),
@@ -165,7 +185,7 @@ def main() -> int:
     args = parse_args()
 
     context = load_configs(args.task)
-    now = datetime.now()
+    now = datetime.now(JST)
     if should_ignore_weekday_check():
         runnable, reason = True, "workflow_dispatch のため曜日チェックをスキップしました"
         logging.info(reason)

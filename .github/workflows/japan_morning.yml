@@ -8,8 +8,8 @@ permissions:
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 9 * * 1-5"
-      timezone: "Asia/Tokyo"
+    # 09:30 JST（月〜金） = 00:30 UTC（月〜金）
+    - cron: "30 0 * * 1-5"
 
 jobs:
   notify:

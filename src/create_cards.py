@@ -95,7 +95,7 @@ def create_summary_card(
     draw.text((64, 64), summary.get("theme_title", "本日のテーマ"), fill=accent, font=mini_font)
     draw.text((64, 102), summary.get("theme_subtitle", ""), fill="#475569", font=small_font)
     draw.text((64, 162), task_config.get("title", task_id), fill="#111827", font=title_font)
-    draw.text((66, 232), f"生成時刻: {summary['generated_at']}", fill="#64748b", font=small_font)
+    draw.text((66, 232), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
     draw.rounded_rectangle((768, 74, 1020, 222), radius=18, fill="#ffffff", outline=accent, width=3)
     draw.text((810, 103), summary.get("conclusion_label", "様子見"), fill=accent, font=_load_font(40))
 

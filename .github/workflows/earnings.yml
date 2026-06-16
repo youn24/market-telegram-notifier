@@ -3,8 +3,8 @@ name: Earnings Close
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 * * 1-5"
-      timezone: "Asia/Tokyo"
+    # 18:00 JST（月〜金） = 09:00 UTC（月〜金）
+    - cron: "0 9 * * 1-5"
 
 jobs:
   notify:

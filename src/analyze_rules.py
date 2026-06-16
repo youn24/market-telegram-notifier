@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
+
+JST = ZoneInfo("Asia/Tokyo")
 
 
 def _format_number(value: float | None, digits: int = 2) -> str:
@@ -310,7 +313,7 @@ def build_summary(
 ) -> dict[str, Any]:
     thresholds = rules.get("thresholds", {})
     default_no_signal = rules.get("messages", {}).get("no_signal", "目立ったシグナルは未確認")
-    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generated_at = datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S JST")
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
     tone = _market_tone(raw_data, thresholds)
     theme_title, theme_subtitle = _theme_block(task_id, tone, generated_at)

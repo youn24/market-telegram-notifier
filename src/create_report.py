@@ -373,7 +373,7 @@ def create_market_report(
       font-weight: 800;
     }}
     h1 {{
-      font-size: 22px;
+      font-size: 26px;
       line-height: 1.25;
       margin: 0 0 8px;
     }}
@@ -395,8 +395,14 @@ def create_market_report(
       margin-bottom: 10px;
     }}
     .meta {{
-      font-size: 12px;
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
       color: var(--sub);
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 6px 8px;
     }}
     .digest-strip {{
       display: grid;
@@ -738,7 +744,7 @@ def create_market_report(
       <h1>{_safe(task_config.get("title", task_id))}</h1>
       <div class="badge">{_safe(market_label)}</div>
       <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
-      <div class="meta">更新: {_safe(summary.get("generated_at", ""))}</div>
+      <div class="meta">配信日時: {_safe(summary.get("generated_at", ""))}</div>
       <div class="digest-strip">
         {digest_tiles_html}
       </div>
