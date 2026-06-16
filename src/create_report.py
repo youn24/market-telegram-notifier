@@ -7,6 +7,7 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 HERO_ASSET = BASE_DIR / "assets" / "design" / "market-digest-hero.png"
+CHARACTER_DIR = BASE_DIR / "assets" / "characters"
 
 WORLD_BOARD_GROUPS = [
     ("日本", ["NIKKEI225", "TOPIX"]),
@@ -233,22 +234,51 @@ def _render_ticker_strip(raw_data: dict[str, Any]) -> str:
     return "\n".join(chips)
 
 
-def _render_dialogue(dialogue: list[dict[str, str]]) -> str:
+def _character_sources(tone: str) -> tuple[Path, Path]:
+    suffix = {"bull": "bull", "bear": "bear", "neutral": "ai"}.get(tone, "ai")
+    return (
+        CHARACTER_DIR / f"elephant-{suffix}.png",
+        CHARACTER_DIR / f"otter-{suffix}.png",
+    )
+
+
+def _render_dialogue(dialogue: list[dict[str, str]], elephant_asset: str | None, otter_asset: str | None) -> str:
     blocks: list[str] = []
     for item in dialogue:
         role = item.get("role", "teacher")
         role_class = "student" if role == "student" else "teacher"
+        asset = otter_asset if role_class == "student" else elephant_asset
+        avatar = f'<img src="assets/{_safe(asset)}" alt="{_safe(item.get("speaker", ""))}" class="talk-avatar">' if asset else ""
         blocks.append(
             "\n".join(
                 [
                     f'<section class="talk {role_class}">',
-                    f'  <div class="talk-role">{_safe(item.get("speaker", ""))}</div>',
-                    f'  <div class="talk-text">{_safe(item.get("text", ""))}</div>',
+                    f"  {avatar}",
+                    '  <div class="talk-bubble">',
+                    f'    <div class="talk-role">{_safe(item.get("speaker", ""))}</div>',
+                    f'    <div class="talk-text">{_safe(item.get("text", ""))}</div>',
+                    "  </div>",
                     "</section>",
                 ]
             )
         )
     return "\n".join(blocks)
+
+
+def _render_analysis_summary(summary: dict[str, Any], elephant_asset: str | None, otter_asset: str | None) -> str:
+    elephant = f'<img src="assets/{_safe(elephant_asset)}" alt="ガネーシャ先生" class="summary-character">' if elephant_asset else ""
+    otter = f'<img src="assets/{_safe(otter_asset)}" alt="カワウソくん" class="summary-character">' if otter_asset else ""
+    comments = _render_list(summary.get("commentary", [])[:3], "memo-item")
+    return "\n".join(
+        [
+            '<div class="analysis-summary">',
+            f'  <div class="summary-characters">{elephant}{otter}</div>',
+            '  <ul class="memo-list summary-memos">',
+            f"    {comments}",
+            "  </ul>",
+            "</div>",
+        ]
+    )
 
 
 def _render_bullets(items: list[str], css_class: str) -> str:
@@ -281,6 +311,9 @@ def create_market_report(
     copied_card = _copy_if_exists(card_path, assets_dir / "summary-card.png")
     copied_chart = _copy_if_exists(chart_path, assets_dir / "market-chart.png")
     copied_hero = _copy_if_exists(HERO_ASSET, assets_dir / "market-digest-hero.png")
+    elephant_source, otter_source = _character_sources(summary.get("market_tone", "neutral"))
+    copied_elephant = _copy_if_exists(elephant_source, assets_dir / "ganesha-sensei.png")
+    copied_otter = _copy_if_exists(otter_source, assets_dir / "kawauso-kun.png")
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
@@ -294,7 +327,8 @@ def create_market_report(
     commentary_html = _render_list(summary.get("commentary", [])[:3], "memo-item")
     opportunity_html = _render_bullets(summary.get("opportunities", [])[:3], "opportunity-item")
     caution_html = _render_bullets(summary.get("cautions", [])[:3], "caution-item")
-    dialogue_html = _render_dialogue(summary.get("dialogue", []))
+    dialogue_html = _render_dialogue(summary.get("dialogue", []), copied_elephant, copied_otter)
+    analysis_summary_html = _render_analysis_summary(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
@@ -682,15 +716,56 @@ def create_market_report(
       border-left: 4px solid #2563eb;
       color: #1e3a8a;
     }}
+    .analysis-summary {{
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+      align-items: center;
+    }}
+    .summary-characters {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: end;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+    }}
+    .summary-character {{
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }}
+    .summary-memos {{
+      gap: 8px;
+    }}
     .talk {{
       border: 1px solid var(--line);
       border-radius: 4px;
       padding: 12px 14px;
       margin-bottom: 10px;
       line-height: 1.8;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }}
+    .talk.student {{
+      flex-direction: row-reverse;
     }}
     .talk.teacher {{ background: #ffffff; border-left: 4px solid #f59e0b; }}
     .talk.student {{ background: #ffffff; border-left: 4px solid #2563eb; }}
+    .talk-avatar {{
+      width: 86px;
+      height: 86px;
+      object-fit: contain;
+      flex: 0 0 86px;
+    }}
+    .talk-bubble {{
+      flex: 1;
+      min-width: 0;
+    }}
     .talk-role {{
       color: var(--sub);
       font-size: 12px;
@@ -735,6 +810,23 @@ def create_market_report(
       font-size: 15px;
       font-weight: 700;
     }}
+    @media (max-width: 520px) {{
+      .analysis-summary {{
+        grid-template-columns: 1fr;
+      }}
+      .summary-characters {{
+        max-width: 220px;
+        margin: 0 auto;
+      }}
+      .talk, .talk.student {{
+        flex-direction: column;
+        align-items: flex-start;
+      }}
+      .talk-avatar {{
+        width: 72px;
+        height: 72px;
+      }}
+    }}
   </style>
 </head>
 <body>
@@ -753,6 +845,11 @@ def create_market_report(
     <section class="panel">
       <h2>結論</h2>
       <div class="conclusion">{_safe(summary.get("conclusion_text", ""))}</div>
+    </section>
+
+    <section class="panel">
+      <h2>先生の分析要約</h2>
+      {analysis_summary_html}
     </section>
 
     <section class="panel">
