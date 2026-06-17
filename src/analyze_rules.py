@@ -59,7 +59,50 @@ def _market_tone(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> str:
     return "neutral"
 
 
-def _theme_block(task_id: str, tone: str, generated_at: str) -> tuple[str, str]:
+def _variant_index(generated_at: str, *parts: str, modulo: int = 3) -> int:
+    seed = sum(ord(char) for char in "|".join([generated_at, *parts]))
+    return seed % max(1, modulo)
+
+
+def _change_groups(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    positive_items = [
+        item
+        for item in raw_data.get("items", [])
+        if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)
+    ]
+    negative_items = [
+        item
+        for item in raw_data.get("items", [])
+        if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)
+    ]
+    return positive_items, negative_items
+
+
+def _labels(items: list[dict[str, Any]], fallback: str) -> str:
+    return "、".join(item.get("label", "") for item in items[:2] if item.get("label")) or fallback
+
+
+def _macro_temperature(raw_data: dict[str, Any]) -> str:
+    macro_items = raw_data.get("macro_items", [])
+    us10y = _find_item(macro_items, "US10Y")
+    vix = _find_item(macro_items, "VIX")
+    dollar = _find_item(macro_items, "DOLLAR_BROAD")
+    reads: list[str] = []
+
+    if vix and vix.get("change_pct") is not None:
+        if vix["change_pct"] >= 3:
+            reads.append("VIX上昇で警戒温度は高め")
+        elif vix["change_pct"] <= -3:
+            reads.append("VIX低下でリスク許容は改善")
+    if us10y and us10y.get("change_pct") is not None:
+        reads.append("米金利上昇" if us10y["change_pct"] > 0 else "米金利低下")
+    if dollar and dollar.get("change_pct") is not None:
+        reads.append("ドル強め" if dollar["change_pct"] > 0 else "ドル弱め")
+
+    return "、".join(reads[:2]) if reads else "マクロは未確認を残して確認"
+
+
+def _theme_block(task_id: str, task_config: dict[str, Any], tone: str, generated_at: str) -> tuple[str, str]:
     day_seed = int(generated_at[8:10])
     theme_map = {
         "fx": [
@@ -97,41 +140,125 @@ def _theme_block(task_id: str, tone: str, generated_at: str) -> tuple[str, str]:
     return title, f"{subtitle} / {tone_suffix}"
 
 
-def _student_question(task_id: str, task_config: dict[str, Any], tone: str) -> str:
+def _student_question(
+    task_id: str,
+    task_config: dict[str, Any],
+    tone: str,
+    raw_data: dict[str, Any],
+    thresholds: dict[str, Any],
+    generated_at: str,
+) -> str:
+    positive_items, negative_items = _change_groups(raw_data, thresholds)
+    strong_side = _labels(positive_items, "強い指数")
+    weak_side = _labels(negative_items, "弱い指数")
+    macro_temp = _macro_temperature(raw_data)
+    variant = _variant_index(generated_at, task_id, tone, modulo=4)
+
     if task_config.get("focus") == "macro":
-        if tone == "bull":
-            return "先生、今日は世界全体ではリスクを取りに行く地合いですか？"
-        if tone == "bear":
-            return "先生、今日は日本株の前に世界のリスク回避を警戒した方がいいですか？"
-        return "先生、今朝の世界地合いは方向感待ちですか？"
+        patterns = {
+            "bull": [
+                f"先生、{strong_side}が支えていますが、今日はリスクオンとして見ていいですか？",
+                f"先生、{macro_temp}なら、日本株の寄り前は攻め目線を少し持てますか？",
+                f"先生、世界の資金は株へ向かっている雰囲気ですか？それともまだ選別ですか？",
+                f"先生、今朝は追うより押し目待ちですか？強い地合いの見方を教えてください。",
+            ],
+            "bear": [
+                f"先生、{weak_side}が重いです。今日は寄り前から守りを厚くした方がいいですか？",
+                f"先生、{macro_temp}なら、リスク回避が日本株にも波及しそうですか？",
+                f"先生、下げの初動なのか一時的な調整なのか、どこを見ればいいですか？",
+                f"先生、今日は買い場探しより、まず地合いの悪化確認が先ですか？",
+            ],
+            "neutral": [
+                f"先生、{macro_temp}で強弱が割れています。今日は方向感待ちですか？",
+                "先生、世界地合いがはっきりしません。寄り付き後は何を一番に見ればいいですか？",
+                "先生、株・金利・為替が同じ方向を向いていない時は、どう判断すればいいですか？",
+                "先生、今朝は無理に結論を出さず、どの条件が揃ったら動くべきですか？",
+            ],
+        }
+        return patterns[tone][variant]
     if task_id.startswith("fx"):
-        if tone == "bull":
-            return "先生、いまは円安の流れに素直についていっていいですか？"
-        if tone == "bear":
-            return "先生、いまは逆張りよりリスク回避を優先した方がいいですか？"
-        return "先生、いまの為替は方向感待ちですか？"
-    if tone == "bull":
-        return "先生、寄り後は強い銘柄を素直に追っていい場面ですか？"
-    if tone == "bear":
-        return "先生、今日は無理に入らず守り寄りで見た方がいいですか？"
-    return "先生、今日は飛びつくより見極め優先ですか？"
+        patterns = {
+            "bull": [
+                "先生、いまは円安の流れに素直についていっていいですか？",
+                "先生、ドル買いが続くなら、押し目を待つ方が良さそうですか？",
+                "先生、為替のモメンタムはまだ残っていますか？",
+                "先生、上に走った後の高値掴みを避けるには何を見ればいいですか？",
+            ],
+            "bear": [
+                "先生、いまは逆張りよりリスク回避を優先した方がいいですか？",
+                "先生、円高方向に振れるなら、戻りの重さを見た方がいいですか？",
+                "先生、ドルの失速が本物かどうか、どこで確認しますか？",
+                "先生、急な巻き戻しが来た時は、追わずに待つべきですか？",
+            ],
+            "neutral": [
+                "先生、いまの為替は方向感待ちですか？",
+                "先生、レンジっぽい時はどちら側のブレイクを待てばいいですか？",
+                "先生、為替が煮詰まっている時、先に見るべき材料は金利ですか？",
+                "先生、今は値幅よりもタイミングを絞る局面ですか？",
+            ],
+        }
+        return patterns[tone][variant]
+
+    patterns = {
+        "bull": [
+            f"先生、寄り後は{strong_side}の流れに素直についていっていい場面ですか？",
+            "先生、今日は強い銘柄の押し目を待つ作戦でいいですか？",
+            "先生、指数が強い時でも、飛びつきを避けるポイントはどこですか？",
+            "先生、買いが広がっているのか、一部だけ強いのかをどう見ますか？",
+        ],
+        "bear": [
+            f"先生、{weak_side}が重いです。今日は無理に入らず守り寄りで見た方がいいですか？",
+            "先生、寄り後に戻しても、戻り売りを警戒した方がいいですか？",
+            "先生、今日は反発狙いより、地合いの悪化確認が先ですか？",
+            "先生、弱い日に触ってはいけない銘柄の見分け方を教えてください。",
+        ],
+        "neutral": [
+            "先生、今日は飛びつくより見極め優先ですか？",
+            "先生、強弱が混ざる日は、最初の何分を観察すればいいですか？",
+            "先生、方向感が薄い時は、出来高と板のどちらを重視しますか？",
+            "先生、今は銘柄選別の精度を上げる日ですか？",
+        ],
+    }
+    return patterns[tone][variant]
 
 
 def _teacher_answer(
     raw_data: dict[str, Any],
     thresholds: dict[str, Any],
     tone: str,
+    task_config: dict[str, Any],
+    generated_at: str,
 ) -> str:
-    positive_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) >= thresholds.get("moderate_up_pct", 0.3)]
-    negative_items = [item for item in raw_data.get("items", []) if (item.get("change_pct") or 0) <= thresholds.get("moderate_down_pct", -0.3)]
+    positive_items, negative_items = _change_groups(raw_data, thresholds)
+    strong_side = _labels(positive_items, "強い指数")
+    weak_side = _labels(negative_items, "弱い指数")
+    macro_temp = _macro_temperature(raw_data)
+    variant = _variant_index(generated_at, task_config.get("category", ""), tone, modulo=4)
 
     if tone == "bull" and positive_items:
-        joined = "、".join(item["label"] for item in positive_items[:2])
-        return f"{joined}が支えているので、強い銘柄を押し目で拾えるかを見たいです。"
+        patterns = [
+            f"{strong_side}が支えています。追いかけるより、押し目の浅さと出来高の残り方を見たいです。",
+            f"地合いは前向きです。ただし強い日ほど高値掴みが出やすいので、初動後の二段目を確認しましょう。",
+            f"{macro_temp}です。買い目線は残しますが、指数だけでなく主役銘柄の広がりを見ます。",
+            f"リスク選好はあります。とはいえ『強いから買う』ではなく、『崩れないから拾う』感覚が大事です。",
+        ]
+        return patterns[variant]
     if tone == "bear" and negative_items:
-        joined = "、".join(item["label"] for item in negative_items[:2])
-        return f"{joined}が重いので、今日は無理に追わず戻り売りと見送りを優先します。"
-    return "まだ強弱が混ざっています。最初の値動きだけで決めず、続く側に寄せていきましょう。"
+        patterns = [
+            f"{weak_side}が重いです。今日は買い急がず、戻りの鈍さと下げ止まりの質を確認します。",
+            f"守りを厚くします。反発しても出来高が伴わないなら、無理に追わない方が安全です。",
+            f"{macro_temp}です。下げたから安いではなく、売り圧力が抜けたかを先に見ます。",
+            f"今日は『取る日』より『残す日』の意識です。焦らず、悪い流れが止まるまで待ちましょう。",
+        ]
+        return patterns[variant]
+
+    patterns = [
+        "まだ強弱が混ざっています。最初の値動きだけで決めず、続く側に寄せていきましょう。",
+        f"{macro_temp}です。方向感が薄い時は、勝負より観察の精度を上げる局面です。",
+        "結論を急がなくて大丈夫です。出来高、値持ち、主役銘柄の有無を順番に確認しましょう。",
+        "今日は地合いの輪郭がまだぼんやりしています。シナリオを持ちつつ、条件が揃うまで待ちます。",
+    ]
+    return patterns[variant]
 
 
 def _conclusion_block(raw_data: dict[str, Any], thresholds: dict[str, Any], tone: str) -> tuple[str, str]:
@@ -316,7 +443,7 @@ def build_summary(
     generated_at = datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S JST")
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
     tone = _market_tone(raw_data, thresholds)
-    theme_title, theme_subtitle = _theme_block(task_id, tone, generated_at)
+    theme_title, theme_subtitle = _theme_block(task_id, task_config, tone, generated_at)
 
     lines: list[str] = []
     market_lines: list[str] = []
@@ -364,8 +491,16 @@ def build_summary(
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
     student_name = "カワウソくん"
     dialogue = [
-        {"speaker": student_name, "role": "student", "text": _student_question(task_id, task_config, tone)},
-        {"speaker": speaker_name, "role": "teacher", "text": _teacher_answer(raw_data, thresholds, tone)},
+        {
+            "speaker": student_name,
+            "role": "student",
+            "text": _student_question(task_id, task_config, tone, raw_data, thresholds, generated_at),
+        },
+        {
+            "speaker": speaker_name,
+            "role": "teacher",
+            "text": _teacher_answer(raw_data, thresholds, tone, task_config, generated_at),
+        },
     ]
     conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)
     opportunities, cautions = _build_watchpoints(raw_data, thresholds)
