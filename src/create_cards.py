@@ -98,6 +98,40 @@ def _draw_market_flow(draw: ImageDraw.ImageDraw, accent: str, x: int, y: int) ->
         draw.ellipse((x + offset - 4, y + 30 - 4, x + offset + 4, y + 30 + 4), fill=accent)
 
 
+def _draw_market_temperature(
+    draw: ImageDraw.ImageDraw,
+    visual_items: list[dict[str, Any]],
+    x: int,
+    y: int,
+    width: int,
+    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    mini_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+) -> None:
+    draw.text((x, y), "市場温度バー", fill="#172033", font=mini_font)
+    row_y = y + 38
+    center_x = x + width // 2
+    max_abs = max([abs(item.get("change_pct") or 0) for item in visual_items[:5]] + [1])
+    max_abs = min(max_abs, 3.5)
+
+    draw.line((center_x, row_y - 8, center_x, row_y + 250), fill="#cbd5e1", width=2)
+    for item in visual_items[:5]:
+        change_pct = item.get("change_pct")
+        label = str(item.get("label", "未確認"))[:12]
+        change_text = str(item.get("change_text", "未確認"))
+        color = "#64748b" if change_pct is None else "#16a34a" if change_pct >= 0 else "#dc2626"
+        length = 0 if change_pct is None else int(min(abs(change_pct), max_abs) / max_abs * 155)
+        bar_top = row_y + 30
+        if change_pct is None:
+            draw.rounded_rectangle((center_x - 18, bar_top, center_x + 18, bar_top + 18), radius=8, fill="#cbd5e1")
+        elif change_pct >= 0:
+            draw.rounded_rectangle((center_x, bar_top, center_x + length, bar_top + 18), radius=8, fill=color)
+        else:
+            draw.rounded_rectangle((center_x - length, bar_top, center_x, bar_top + 18), radius=8, fill=color)
+        draw.text((x, row_y), label, fill="#334155", font=mini_font)
+        draw.text((x + width - 105, row_y), change_text, fill=color, font=mini_font)
+        row_y += 50
+
+
 def create_summary_card(
     task_id: str,
     task_config: dict[str, Any],
@@ -146,18 +180,19 @@ def create_summary_card(
         conclusion_y += 34
 
     draw.rounded_rectangle((38, 590, width - 38, 980), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
-    draw.text((64, 624), "重要数字", fill="#172033", font=strong_font)
+    draw.text((64, 624), "重要数字と市場温度", fill="#172033", font=strong_font)
     panel_y = 684
-    for index, metric in enumerate(summary.get("metrics", [])[:4], start=1):
-        draw.rounded_rectangle((64, panel_y - 4, width - 64, panel_y + 62), radius=10, fill="#f8fafc", outline="#e5e7eb", width=1)
+    for index, metric in enumerate(summary.get("metrics", [])[:3], start=1):
+        draw.rounded_rectangle((64, panel_y - 4, 548, panel_y + 62), radius=10, fill="#f8fafc", outline="#e5e7eb", width=1)
         draw.rounded_rectangle((82, panel_y + 10, 126, panel_y + 52), radius=10, fill="#ffffff", outline=accent, width=2)
         draw.text((96, panel_y + 14), str(index), fill=accent, font=small_font)
-        wrapped_metric = _wrap_japanese_text(draw, metric.replace("- ", "", 1), body_font, width - 220)
+        wrapped_metric = _wrap_japanese_text(draw, metric.replace("- ", "", 1), small_font, 370)
         text_y = panel_y + 13
         for metric_line in wrapped_metric[:1]:
-            draw.text((152, text_y), metric_line, fill="#243041", font=body_font)
+            draw.text((152, text_y), metric_line, fill="#243041", font=small_font)
             text_y += 30
         panel_y += 76
+    _draw_market_temperature(draw, summary.get("visual_items", []), 590, 684, 400, small_font, mini_font)
 
     draw.rounded_rectangle((38, 1010, width - 38, 1438), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
     draw.text((64, 1044), "先生の分析要約", fill="#172033", font=strong_font)

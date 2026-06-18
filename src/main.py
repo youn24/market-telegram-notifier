@@ -143,27 +143,18 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
         "bear": "結論: 警戒",
         "neutral": "結論: 様子見",
     }.get(summary.get("market_tone", "neutral"), "結論: 様子見")
-    key_metrics = summary.get("metrics", [])[:4]
-    key_metric_lines = key_metrics if key_metrics else ["- 重要数字: 未確認"]
-    commentary = summary.get("commentary", [])[:3]
-    commentary_lines = commentary if commentary else ["未確認データを残しながら、取れる数字だけで判断します。"]
+    teacher_line = summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。")
+    student_line = summary.get("dialogue", [{}])[0].get("text", "")
 
     text = "\n".join(
         [
-            "━━━━━━━━━━━━━━",
             f"【{title}】",
             f"配信日時: {summary['generated_at']}",
             headline,
-            "━━━━━━━━━━━━━━",
             "",
-            "ガネーシャ先生の分析要約",
-            *commentary_lines,
+            f"ガネーシャ先生: {teacher_line}",
             "",
-            "重要数字",
-            *key_metric_lines,
-            "",
-            "カワウソくん:",
-            summary.get("dialogue", [{}])[0].get("text", ""),
+            f"カワウソくん: {student_line}" if student_line else "",
             "",
             f"レポート: {link}" if link else "",
         ]

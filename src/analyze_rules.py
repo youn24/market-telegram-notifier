@@ -318,6 +318,28 @@ def _format_macro_line(item: dict[str, Any]) -> str:
     return f"- {item['label']}: {_format_macro_value(item)} ({_format_pct(item.get('change_pct'))})"
 
 
+def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
+    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "YIELD_2S10S"]
+    source_items = raw_data.get("items", []) + raw_data.get("macro_items", [])
+    by_key = {item.get("key"): item for item in source_items}
+    ordered_items = [by_key[key] for key in preferred_keys if key in by_key]
+    ordered_items.extend(item for item in source_items if item not in ordered_items)
+
+    visual_items: list[dict[str, Any]] = []
+    for item in ordered_items[:8]:
+        current = item.get("current")
+        unit = item.get("unit", "")
+        visual_items.append(
+            {
+                "label": item.get("label", "未確認"),
+                "value": "未確認" if current is None else f"{current:,.2f}{unit}",
+                "change_pct": item.get("change_pct"),
+                "change_text": _format_pct(item.get("change_pct")),
+            }
+        )
+    return visual_items
+
+
 def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
     for item in items:
         if item.get("key") == key:
@@ -527,4 +549,5 @@ def build_summary(
         "opportunities": opportunities,
         "cautions": cautions,
         "scenarios": scenarios,
+        "visual_items": _build_visual_items(raw_data),
     }
