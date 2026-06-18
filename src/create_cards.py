@@ -143,6 +143,12 @@ def _draw_research_chips(
 ) -> int:
     draw.text((x, y), "材料検索", fill="#172033", font=small_font)
     chip_y = y + 44
+    theme_lines = summary.get("research_theme_lines", [])
+    if theme_lines:
+        theme_text = " / ".join(line.replace("重要テーマ: ", "") for line in theme_lines[:2])
+        wrapped_theme = _wrap_japanese_text(draw, theme_text, mini_font, width)
+        draw.text((x, chip_y), wrapped_theme[0], fill="#0369a1", font=mini_font)
+        chip_y += 34
     items = summary.get("research_items", [])
     if not items:
         note = summary.get("research_note", "ニュース検索は未確認")
@@ -155,8 +161,9 @@ def _draw_research_chips(
     for item in items[:2]:
         source = item.get("source", "媒体未確認")
         title = item.get("title", "未確認")
+        score = item.get("score", "未採点")
         draw.rounded_rectangle((x, chip_y, x + width, chip_y + 54), radius=12, fill="#f0f9ff", outline="#bae6fd", width=1)
-        draw.text((x + 14, chip_y + 8), str(source)[:18], fill="#0369a1", font=mini_font)
+        draw.text((x + 14, chip_y + 8), f"{str(source)[:14]} / {score}", fill="#0369a1", font=mini_font)
         wrapped_title = _wrap_japanese_text(draw, str(title), mini_font, width - 220)
         draw.text((x + 190, chip_y + 8), wrapped_title[0], fill="#172033", font=mini_font)
         chip_y += 64

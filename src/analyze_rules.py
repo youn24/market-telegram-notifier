@@ -114,8 +114,24 @@ def _research_lines(raw_data: dict[str, Any]) -> list[str]:
         title = item.get("title", "未確認")
         source = item.get("source", "媒体未確認")
         published = item.get("published", "日時未確認")
-        lines.append(f"{title}（{source} / {published}）")
+        score = item.get("score", "未採点")
+        reason = item.get("research_reason", "")
+        lines.append(f"{title}（{source} / {published} / score={score} / {reason}）")
     return lines
+
+
+def _research_theme_lines(raw_data: dict[str, Any]) -> list[str]:
+    items = raw_data.get("research", {}).get("items", [])
+    keyword_counts: dict[str, int] = {}
+    for item in items:
+        for keyword in item.get("matched_keywords", []):
+            keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
+
+    if not keyword_counts:
+        return ["重要テーマ: ニュース材料は未確認または重要語一致が少なめです。"]
+
+    ranked = sorted(keyword_counts.items(), key=lambda pair: pair[1], reverse=True)[:4]
+    return [f"重要テーマ: {keyword}（関連見出し {count}件）" for keyword, count in ranked]
 
 
 def _research_digest(raw_data: dict[str, Any]) -> str:
@@ -129,7 +145,9 @@ def _research_digest(raw_data: dict[str, Any]) -> str:
         source = item.get("source")
         if source and source not in source_names:
             source_names.append(source)
-    return f"材料検索では{len(items)}件を確認。主な出所は{'、'.join(source_names) or '未確認'}です。"
+    top_item = items[0]
+    score = top_item.get("score", "未採点")
+    return f"材料検索では{len(items)}件を確認。最上位材料はscore {score}、主な出所は{'、'.join(source_names) or '未確認'}です。"
 
 
 def _theme_block(task_id: str, task_config: dict[str, Any], tone: str, generated_at: str) -> tuple[str, str]:
@@ -544,6 +562,7 @@ def build_summary(
 
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
     research_lines = _research_lines(raw_data)
+    research_theme_lines = _research_theme_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -585,5 +604,6 @@ def build_summary(
         "visual_items": _build_visual_items(raw_data),
         "research_items": raw_data.get("research", {}).get("items", []),
         "research_lines": research_lines,
+        "research_theme_lines": research_theme_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }

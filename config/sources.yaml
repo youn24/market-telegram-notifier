@@ -96,6 +96,15 @@ research:
   region: "JP"
   max_items_per_query: 3
   max_total_items: 8
+  freshness_half_life_hours: 18
+  search_window_days: 3
+  max_age_hours: 96
+  importance_keywords:
+    macro: ["FRB", "FOMC", "金利", "米10年", "雇用", "CPI", "PCE", "ドル", "円", "原油", "VIX"]
+    japan_market: ["日経平均", "TOPIX", "半導体", "銀行", "為替", "決算", "上方修正", "下方修正", "レーティング", "需給"]
+    fx: ["ドル円", "円", "日銀", "FRB", "米金利", "介入", "CPI", "雇用統計"]
+    earnings: ["決算", "上方修正", "下方修正", "増益", "減益", "営業利益", "通期"]
+    default: ["株", "為替", "金利", "決算", "原油", "リスク"]
   default_queries:
     macro:
       - "米国株 金利 為替 原油 市場"

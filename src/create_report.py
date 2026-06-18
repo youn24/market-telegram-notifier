@@ -313,18 +313,24 @@ def _render_research_cards(summary: dict[str, Any]) -> str:
         return f'<div class="research-card unavailable">{_safe(summary.get("research_note", "材料検索は未確認"))}</div>'
 
     cards: list[str] = []
+    theme_html = "".join(f'<div class="research-theme-chip">{_safe(line.replace("重要テーマ: ", ""))}</div>' for line in summary.get("research_theme_lines", [])[:4])
+    if theme_html:
+        cards.append(f'<div class="research-themes">{theme_html}</div>')
     for item in items[:6]:
         url = item.get("url", "")
         title = _safe(item.get("title", "未確認"))
         source = _safe(item.get("source", "媒体未確認"))
         published = _safe(item.get("published", "日時未確認"))
+        score = _safe(str(item.get("score", "未採点")))
+        reason = _safe(item.get("research_reason", ""))
         title_html = f'<a href="{_safe(url)}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
         cards.append(
             "\n".join(
                 [
                     '<article class="research-card">',
-                    f'  <div class="research-meta">{source} / {published}</div>',
+                    f'  <div class="research-meta">{source} / {published} / score {score}</div>',
                     f'  <div class="research-title">{title_html}</div>',
+                    f'  <div class="research-reason">{reason}</div>',
                     "</article>",
                 ]
             )
@@ -869,6 +875,21 @@ def create_market_report(
       display: grid;
       gap: 8px;
     }}
+    .research-themes {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 4px;
+    }}
+    .research-theme-chip {{
+      border: 1px solid #bae6fd;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #f0f9ff;
+      color: #075985;
+      font-size: 12px;
+      font-weight: 900;
+    }}
     .research-card {{
       border: 1px solid var(--line);
       border-left: 4px solid #0ea5e9;
@@ -895,6 +916,12 @@ def create_market_report(
     .research-title a {{
       color: #075985;
       text-decoration: none;
+    }}
+    .research-reason {{
+      color: var(--sub);
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 4px;
     }}
     .analysis-summary {{
       display: grid;
