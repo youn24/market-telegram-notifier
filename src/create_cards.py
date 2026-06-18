@@ -175,11 +175,12 @@ def _draw_change_bars(
     chart_y = y + 78
     chart_w = width - 210
     center = chart_x + chart_w // 2
-    max_abs = max([abs(float(item.get("change_pct") or 0)) for item in visual_items[:7]] + [1.0])
+    visible_items = visual_items[:5]
+    max_abs = max([abs(float(item.get("change_pct") or 0)) for item in visible_items] + [1.0])
     max_abs = min(max_abs, 5.0)
     draw.line((center, chart_y - 10, center, y + height - 24), fill="#cbd5e1", width=2)
-    for index, item in enumerate(visual_items[:7]):
-        row_y = chart_y + index * 38
+    for index, item in enumerate(visible_items):
+        row_y = chart_y + index * 32
         label = str(item.get("label", "未確認"))[:10]
         change_pct = item.get("change_pct")
         change_text = str(item.get("change_text", "未確認"))
@@ -194,7 +195,72 @@ def _draw_change_bars(
             draw.rounded_rectangle((center, row_y, center + length, row_y + 18), radius=9, fill=color)
         else:
             draw.rounded_rectangle((center - length, row_y, center, row_y + 18), radius=9, fill=color)
-        draw.text((x + width - 96, row_y - 9), change_text, fill=color, font=value_font)
+        draw.rounded_rectangle((x + width - 150, row_y - 13, x + width - 20, row_y + 25), radius=12, fill="#ffffff")
+        draw.text((x + width - 136, row_y - 9), change_text, fill=color, font=value_font)
+
+
+def _shorten_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int, max_lines: int) -> list[str]:
+    lines = _wrap_text(draw, str(text), font, max_width)
+    if len(lines) <= max_lines:
+        return lines
+    clipped = lines[:max_lines]
+    while clipped[-1] and _text_width(draw, clipped[-1] + "…", font) > max_width:
+        clipped[-1] = clipped[-1][:-1]
+    clipped[-1] += "…"
+    return clipped
+
+
+def _draw_quick_summary(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    palette: dict[str, str],
+    x: int,
+    y: int,
+    width: int,
+) -> None:
+    draw.rounded_rectangle((x, y, x + width, y + 230), radius=26, fill="#ffffff", outline="#ead7ba", width=2)
+    draw.text((x + 26, y + 22), "まず見る3点", fill="#7c4a22", font=_load_font(28, bold=True))
+    comments = summary.get("commentary", []) or []
+    fallback = [
+        summary.get("conclusion_text", "結論は未確認データを残しながら判断します。"),
+        "数字は取得できたデータだけを使い、推測では作りません。",
+        "詳しい根拠はブラウザ版レポートで確認できます。",
+    ]
+    rows = (comments + fallback)[:3]
+    icons = ["1", "2", "3"]
+    colors = [palette["soft"], "#eff6ff", "#f8fafc"]
+    for index, row in enumerate(rows):
+        ry = y + 68 + index * 50
+        draw.rounded_rectangle((x + 26, ry, x + width - 26, ry + 40), radius=16, fill=colors[index], outline="#e5e7eb")
+        draw.ellipse((x + 42, ry + 7, x + 68, ry + 33), fill="#ffffff", outline=palette["accent"])
+        draw.text((x + 51, ry + 7), icons[index], fill=palette["accent_dark"], font=_load_font(16, bold=True))
+        line_font = _load_font(18, bold=index == 0)
+        line = _shorten_text(draw, row, line_font, width - 132, 1)[0]
+        draw.text((x + 82, ry + 8), line, fill="#243041", font=line_font)
+
+
+def _draw_signal_board(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    palette: dict[str, str],
+    x: int,
+    y: int,
+    width: int,
+) -> None:
+    draw.rounded_rectangle((x, y, x + width, y + 158), radius=26, fill="#ffffff", outline="#ead7ba", width=2)
+    draw.text((x + 26, y + 20), "今日の作戦メーター", fill="#7c4a22", font=_load_font(26, bold=True))
+    labels = [("守る", "#dc2626"), ("待つ", "#d97706"), ("攻める", "#16a34a")]
+    tone = summary.get("market_tone", "neutral")
+    active_index = {"bear": 0, "neutral": 1, "bull": 2}.get(tone, 1)
+    seg_w = (width - 76) // 3
+    for index, (label, color) in enumerate(labels):
+        sx = x + 26 + index * (seg_w + 12)
+        fill = color if index == active_index else "#f8fafc"
+        text_color = "#ffffff" if index == active_index else color
+        draw.rounded_rectangle((sx, y + 70, sx + seg_w, y + 118), radius=18, fill=fill, outline=color, width=2)
+        draw.text((sx + seg_w // 2 - _text_width(draw, label, _load_font(22, bold=True)) // 2, y + 80), label, fill=text_color, font=_load_font(22, bold=True))
+    conclusion = _shorten_text(draw, summary.get("conclusion_text", ""), _load_font(18), width - 52, 1)[0]
+    draw.text((x + 26, y + 128), conclusion, fill=palette["accent_dark"], font=_load_font(18))
 
 
 def _draw_sparkline_panel(
@@ -207,7 +273,7 @@ def _draw_sparkline_panel(
 ) -> None:
     items = summary.get("sparkline_items", []) or []
     draw.rounded_rectangle((x, y, x + width, y + height), radius=22, fill="#ffffff", outline="#ead7ba", width=2)
-    draw.text((x + 24, y + 20), "日足ミニチャート（初日=100）", fill="#7c4a22", font=_load_font(24, bold=True))
+    draw.text((x + 24, y + 20), "日足ミニチャート（初日=100）", fill="#7c4a22", font=_load_font(26, bold=True))
     plot_x = x + 42
     plot_y = y + 74
     plot_w = width - 84
@@ -282,42 +348,36 @@ def _draw_research_and_scenarios(
     y: int,
     width: int,
 ) -> None:
-    title_font = _load_font(28, bold=True)
-    body_font = _load_font(18)
-    small_font = _load_font(16)
-    draw.rounded_rectangle((x, y, x + width, y + 350), radius=24, fill="#ffffff", outline="#ead7ba", width=2)
+    title_font = _load_font(24, bold=True)
+    body_font = _load_font(16)
+    small_font = _load_font(14)
+    draw.rounded_rectangle((x, y, x + width, y + 132), radius=24, fill="#ffffff", outline="#ead7ba", width=2)
     draw.text((x + 26, y + 20), "材料リサーチと今日の見方", fill="#7c4a22", font=title_font)
     confidence = summary.get("research_confidence_line", "")
     if confidence:
-        draw.rounded_rectangle((x + 26, y + 62, x + width - 26, y + 100), radius=14, fill=palette["soft"])
-        _draw_wrapped(draw, (x + 42, y + 71), confidence, small_font, palette["accent_dark"], width - 84, 1)
-    coverage_lines = summary.get("research_coverage_lines", [])
-    if coverage_lines:
-        draw.rounded_rectangle((x + 26, y + 104, x + width - 26, y + 132), radius=12, fill="#eff6ff", outline="#bfdbfe")
-        _draw_wrapped(draw, (x + 42, y + 109), str(coverage_lines[0]), _load_font(14), "#1d4ed8", width - 84, 1)
-    item_y = y + 142
+        draw.rounded_rectangle((x + 324, y + 18, x + width - 26, y + 50), radius=14, fill=palette["soft"])
+        _draw_wrapped(draw, (x + 342, y + 25), confidence, small_font, palette["accent_dark"], width - 392, 1)
+    item_y = y + 58
     items = summary.get("research_items", [])
     if not items:
         note = summary.get("research_note", "材料検索は未確認です。")
-        _draw_wrapped(draw, (x + 30, item_y), note, body_font, "#64748b", width - 60, 2)
-    for index, item in enumerate(items[:2], start=1):
-        source = str(item.get("source", "媒体未確認"))[:14]
-        score = item.get("score", "未採点")
+        _draw_wrapped(draw, (x + 30, item_y), note, body_font, "#64748b", width - 60, 1)
+    for index, item in enumerate(items[:1], start=1):
+        source = str(item.get("source", "媒体未確認"))[:12]
         title = str(item.get("title", "未確認"))
-        draw.rounded_rectangle((x + 26, item_y, x + width - 26, item_y + 62), radius=16, fill="#f8fafc", outline="#e5e7eb")
-        draw.text((x + 42, item_y + 9), f"{index}. {source} / score {score}", fill="#0369a1", font=small_font)
-        _draw_wrapped(draw, (x + 42, item_y + 32), title, body_font, "#1f2937", width - 84, 1)
-        item_y += 72
-    scenario_y = y + 286
+        draw.rounded_rectangle((x + 26, item_y, x + width - 26, item_y + 34), radius=14, fill="#f8fafc", outline="#e5e7eb")
+        line = _shorten_text(draw, f"{source}: {title}", body_font, width - 84, 1)[0]
+        draw.text((x + 42, item_y + 7), line, fill="#1f2937", font=body_font)
+    scenario_y = y + 96
     labels = ["強気", "中立", "警戒"]
     colors = ["#dcfce7", "#fef3c7", "#fee2e2"]
     for index, scenario in enumerate(summary.get("scenarios", [])[:3]):
         sx = x + 26 + index * ((width - 68) // 3 + 8)
         sw = (width - 84) // 3
-        draw.rounded_rectangle((sx, scenario_y, sx + sw, y + 336), radius=15, fill=colors[index], outline="#ead7ba")
-        draw.text((sx + 14, scenario_y + 10), labels[index], fill="#7c4a22", font=small_font)
+        draw.rounded_rectangle((sx, scenario_y, sx + sw, y + 122), radius=13, fill=colors[index], outline="#ead7ba")
+        draw.text((sx + 14, scenario_y + 8), labels[index], fill="#7c4a22", font=small_font)
         cleaned = str(scenario).split(":", 1)[-1].strip()
-        _draw_wrapped(draw, (sx + 14, scenario_y + 32), cleaned, _load_font(13), "#334155", sw - 28, 1)
+        _draw_wrapped(draw, (sx + 60, scenario_y + 8), cleaned, _load_font(11), "#334155", sw - 72, 1)
 
 
 def create_summary_card(
@@ -341,39 +401,33 @@ def create_summary_card(
 
     margin = 34
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=34, fill="#ffffff", outline="#e7cfa9", width=4)
-    draw.rounded_rectangle((margin + 14, margin + 14, width - margin - 14, 250), radius=28, fill=palette["pale"], outline="#ead7ba", width=2)
+    draw.rounded_rectangle((margin + 14, margin + 14, width - margin - 14, 262), radius=28, fill=palette["pale"], outline="#ead7ba", width=2)
     draw.text((66, 64), summary.get("theme_title", "今日の相場メモ"), fill=palette["accent_dark"], font=subtitle_font)
     title = task_config.get("title", task_id)
-    _draw_wrapped(draw, (66, 105), title, title_font, "#3b2415", 650, 2)
-    draw.text((68, 216), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
-    draw.rounded_rectangle((760, 72, 1018, 188), radius=24, fill="#ffffff", outline=palette["accent"], width=4)
+    _draw_wrapped(draw, (66, 106), title, title_font, "#3b2415", 650, 2)
+    draw.text((68, 220), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
+    draw.rounded_rectangle((760, 72, 1018, 196), radius=24, fill="#ffffff", outline=palette["accent"], width=4)
     draw.text((812, 98), palette["label"], fill=palette["accent"], font=_load_font(38, bold=True))
 
-    _paste_character(image, elephant_path, (56, 238, 230, 418))
-    _paste_character(image, otter_path, (856, 238, 1026, 418))
+    _paste_character(image, elephant_path, (52, 270, 214, 430))
+    _paste_character(image, otter_path, (866, 270, 1026, 430))
+
+    _draw_signal_board(draw, summary, palette, 238, 286, 594)
+    _draw_quick_summary(draw, summary, palette, 56, 462, width - 112)
 
     teacher_text = summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。")
     student_text = ""
     if summary.get("dialogue"):
         student_text = summary["dialogue"][0].get("text", "")
-    speech_y = 270
-    _draw_speech(draw, 238, speech_y, 594, "ガネーシャ先生の結論", teacher_text, palette, "teacher", max_lines=3)
+    speech_y = 712
+    _draw_speech(draw, 56, speech_y, 472, "ガネーシャ先生", teacher_text, palette, "teacher", max_lines=2)
     if student_text:
-        draw.rounded_rectangle((640, 438, 1018, 492), radius=20, fill="#f0f9ff", outline="#38bdf8", width=3)
-        draw.text((660, 452), "カワウソくん: ", fill="#0284c7", font=_load_font(18, bold=True))
-        student_font = _load_font(18)
-        short_lines = _wrap_text(draw, student_text, student_font, 190)
-        short_question = short_lines[0]
-        if len(short_lines) > 1:
-            while short_question and _text_width(draw, short_question + "…", student_font) > 190:
-                short_question = short_question[:-1]
-            short_question += "…"
-        draw.text((786, 452), short_question, fill="#243041", font=student_font)
+        _draw_speech(draw, 552, speech_y, 472, "カワウソくん", student_text, palette, "student", max_lines=2)
 
-    _draw_metric_tiles(draw, summary.get("metrics", []), palette, 56, 500, width - 112)
-    _draw_sparkline_panel(draw, summary, 56, 780, width - 112, 330)
-    _draw_change_bars(draw, summary.get("visual_items", []), 56, 1140, width - 112, 360)
-    _draw_research_and_scenarios(draw, summary, palette, 56, 1520, width - 112)
+    _draw_metric_tiles(draw, summary.get("metrics", []), palette, 56, 888, width - 112)
+    _draw_sparkline_panel(draw, summary, 56, 1160, width - 112, 300)
+    _draw_change_bars(draw, summary.get("visual_items", []), 56, 1490, width - 112, 220)
+    _draw_research_and_scenarios(draw, summary, palette, 56, 1730, width - 112)
 
     footer_font = _load_font(14)
     footer = "数値は取得できたデータのみ使用。取得不能な情報は未確認として扱います。"
