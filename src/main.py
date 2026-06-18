@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -109,8 +110,12 @@ def report_url() -> str | None:
 def display_title(task_config: dict[str, Any], task_id: str) -> str:
     title = str(task_config.get("title", task_id)).strip()
     run_at = str(task_config.get("run_at", "")).strip()
-    if run_at and not title.startswith(run_at):
-        return f"{run_at} {title}"
+    if run_at:
+        normalized_run_at = run_at.lstrip("0")
+        title_without_time = re.sub(r"^\s*\d{1,2}:\d{2}\s*", "", title).strip()
+        if title.startswith(run_at) or title.startswith(normalized_run_at):
+            return title
+        return f"{run_at} {title_without_time or title}"
     return title
 
 
@@ -164,7 +169,7 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
         ]
     )
 
-    images = [path for path in [chart_path, card_path] if path is not None and path.exists()]
+    images = [path for path in [card_path, chart_path] if path is not None and path.exists()]
     return text, images, raw_data
 
 
