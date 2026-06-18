@@ -76,7 +76,7 @@ def _render_sparkline(series: list[dict[str, Any]], color: str) -> str:
         x = 8 + index * (104 / max(1, len(values) - 1))
         y = 44 - ((value - min_value) / span) * 32
         points.append(f"{x:.1f},{y:.1f}")
-    return f'<svg class="sparkline" viewBox="0 0 120 52" aria-hidden="true"><polyline points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    return f'<svg class="sparkline" viewBox="0 0 120 52" aria-hidden="true"><polyline class="chart-line" points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 
 def _render_price_sparkline(series: list[dict[str, Any]], color: str) -> str:
@@ -99,7 +99,7 @@ def _render_price_sparkline(series: list[dict[str, Any]], color: str) -> str:
         [
             '<svg class="price-chart" viewBox="0 0 192 92" aria-hidden="true">',
             f'  <polygon points="{" ".join(area_points)}" fill="{color}" opacity="0.14"/>',
-            f'  <polyline points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
+            f'  <polyline class="chart-line" points="{" ".join(points)}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
             '  <line x1="8" y1="86" x2="184" y2="86" stroke="rgba(100,116,139,.24)" stroke-width="2"/>',
             "</svg>",
         ]
@@ -281,6 +281,24 @@ def _render_analysis_summary(summary: dict[str, Any], elephant_asset: str | None
     )
 
 
+def _render_hero_illustration(summary: dict[str, Any], elephant_asset: str | None, otter_asset: str | None) -> str:
+    elephant = f'<img src="assets/{_safe(elephant_asset)}" alt="ガネーシャ先生" class="hero-character ganesha">' if elephant_asset else ""
+    otter = f'<img src="assets/{_safe(otter_asset)}" alt="カワウソくん" class="hero-character otter">' if otter_asset else ""
+    label = _safe(summary.get("conclusion_label", "様子見"))
+    return "\n".join(
+        [
+            '<div class="hero-visual" aria-label="相場ナビゲーター">',
+            '  <div class="pulse-ring"></div>',
+            '  <div class="orbit-dot dot-a"></div>',
+            '  <div class="orbit-dot dot-b"></div>',
+            f"  {elephant}",
+            f"  {otter}",
+            f'  <div class="hero-visual-label">{label}</div>',
+            "</div>",
+        ]
+    )
+
+
 def _render_bullets(items: list[str], css_class: str) -> str:
     rows = []
     for item in items:
@@ -329,6 +347,7 @@ def create_market_report(
     caution_html = _render_bullets(summary.get("cautions", [])[:3], "caution-item")
     dialogue_html = _render_dialogue(summary.get("dialogue", []), copied_elephant, copied_otter)
     analysis_summary_html = _render_analysis_summary(summary, copied_elephant, copied_otter)
+    hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
@@ -373,7 +392,9 @@ def create_market_report(
     body {{
       margin: 0;
       font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 32%),
+        linear-gradient(180deg, #ffffff 0%, var(--bg) 260px);
       color: var(--text);
     }}
     .page {{
@@ -388,6 +409,7 @@ def create_market_report(
       padding: 12px;
       box-shadow: none;
       margin-bottom: 8px;
+      animation: fadeUp .48s ease both;
     }}
     .hero {{
       position: relative;
@@ -399,6 +421,84 @@ def create_market_report(
     .hero > * {{
       position: relative;
       z-index: 1;
+    }}
+    .hero-layout {{
+      display: grid;
+      grid-template-columns: 1fr 172px;
+      gap: 12px;
+      align-items: center;
+    }}
+    .hero-visual {{
+      position: relative;
+      min-height: 168px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--accent) 16%, white), transparent 42%),
+        #f8fafc;
+      overflow: hidden;
+    }}
+    .hero-character {{
+      position: absolute;
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 14px rgba(15, 23, 42, .14));
+      animation: floatSoft 4.2s ease-in-out infinite;
+    }}
+    .hero-character.ganesha {{
+      left: 18px;
+      bottom: 36px;
+    }}
+    .hero-character.otter {{
+      right: 16px;
+      bottom: 20px;
+      width: 76px;
+      height: 76px;
+      animation-delay: .7s;
+    }}
+    .hero-visual-label {{
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      background: #ffffff;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }}
+    .pulse-ring {{
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 78px;
+      height: 78px;
+      border: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      animation: pulseRing 2.8s ease-out infinite;
+    }}
+    .orbit-dot {{
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      opacity: .75;
+      animation: orbitDot 5s linear infinite;
+    }}
+    .dot-a {{
+      left: 28px;
+      top: 26px;
+    }}
+    .dot-b {{
+      right: 34px;
+      top: 44px;
+      animation-delay: 1.6s;
     }}
     .eyebrow {{
       font-size: 12px;
@@ -454,6 +554,12 @@ def create_market_report(
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }}
+    .digest-tile:hover {{
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+      background: #ffffff;
     }}
     .digest-tile span {{
       font-size: 11px;
@@ -481,6 +587,7 @@ def create_market_report(
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      animation: fadeUp .5s ease both;
     }}
     .ticker-chip span {{
       font-size: 10px;
@@ -526,6 +633,11 @@ def create_market_report(
       box-shadow: none;
       min-height: 148px;
       overflow: hidden;
+      transition: transform .18s ease, border-color .18s ease;
+    }}
+    .chart-card:hover {{
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
     }}
     .chart-card-head {{
       display: flex;
@@ -562,6 +674,11 @@ def create_market_report(
       background:
         repeating-linear-gradient(0deg, rgba(148,163,184,.18) 0, rgba(148,163,184,.18) 1px, transparent 1px, transparent 22px);
     }}
+    .chart-line {{
+      stroke-dasharray: 420;
+      stroke-dashoffset: 420;
+      animation: drawLine 1.25s ease forwards;
+    }}
     .price-chart-empty {{
       display: grid;
       place-items: center;
@@ -593,6 +710,11 @@ def create_market_report(
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      transition: transform .16s ease, background .16s ease;
+    }}
+    .market-tile:hover {{
+      transform: translateY(-1px);
+      background: #f8fafc;
     }}
     .market-tile span {{
       font-size: 10px;
@@ -737,6 +859,10 @@ def create_market_report(
       height: auto;
       display: block;
       object-fit: contain;
+      animation: floatSoft 4.5s ease-in-out infinite;
+    }}
+    .summary-character:nth-child(2) {{
+      animation-delay: .8s;
     }}
     .summary-memos {{
       gap: 8px;
@@ -761,6 +887,10 @@ def create_market_report(
       height: 86px;
       object-fit: contain;
       flex: 0 0 86px;
+      animation: floatSoft 4.4s ease-in-out infinite;
+    }}
+    .talk.student .talk-avatar {{
+      animation-delay: .6s;
     }}
     .talk-bubble {{
       flex: 1;
@@ -811,6 +941,20 @@ def create_market_report(
       font-weight: 700;
     }}
     @media (max-width: 520px) {{
+      .hero-layout {{
+        grid-template-columns: 1fr;
+      }}
+      .hero-visual {{
+        min-height: 128px;
+      }}
+      .hero-character {{
+        width: 72px;
+        height: 72px;
+      }}
+      .hero-character.otter {{
+        width: 64px;
+        height: 64px;
+      }}
       .analysis-summary {{
         grid-template-columns: 1fr;
       }}
@@ -827,18 +971,74 @@ def create_market_report(
         height: 72px;
       }}
     }}
+    @media (prefers-reduced-motion: reduce) {{
+      *, *::before, *::after {{
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+      }}
+    }}
+    @keyframes fadeUp {{
+      from {{
+        opacity: 0;
+        transform: translateY(10px);
+      }}
+      to {{
+        opacity: 1;
+        transform: translateY(0);
+      }}
+    }}
+    @keyframes drawLine {{
+      to {{
+        stroke-dashoffset: 0;
+      }}
+    }}
+    @keyframes floatSoft {{
+      0%, 100% {{
+        transform: translateY(0);
+      }}
+      50% {{
+        transform: translateY(-6px);
+      }}
+    }}
+    @keyframes pulseRing {{
+      0% {{
+        opacity: .72;
+        transform: translate(-50%, -50%) scale(.72);
+      }}
+      100% {{
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.85);
+      }}
+    }}
+    @keyframes orbitDot {{
+      0% {{
+        transform: translate(0, 0) scale(1);
+      }}
+      50% {{
+        transform: translate(22px, 14px) scale(.8);
+      }}
+      100% {{
+        transform: translate(0, 0) scale(1);
+      }}
+    }}
   </style>
 </head>
 <body>
   <main class="page">
     <section class="hero">
-      <div class="eyebrow">{_safe(summary.get("theme_title", "本日のテーマ"))}</div>
-      <h1>{_safe(task_config.get("title", task_id))}</h1>
-      <div class="badge">{_safe(market_label)}</div>
-      <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
-      <div class="meta">配信日時: {_safe(summary.get("generated_at", ""))}</div>
-      <div class="digest-strip">
-        {digest_tiles_html}
+      <div class="hero-layout">
+        <div>
+          <div class="eyebrow">{_safe(summary.get("theme_title", "本日のテーマ"))}</div>
+          <h1>{_safe(task_config.get("title", task_id))}</h1>
+          <div class="badge">{_safe(market_label)}</div>
+          <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
+          <div class="meta">配信日時: {_safe(summary.get("generated_at", ""))}</div>
+          <div class="digest-strip">
+            {digest_tiles_html}
+          </div>
+        </div>
+        {hero_illustration_html}
       </div>
     </section>
 

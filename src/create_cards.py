@@ -90,6 +90,14 @@ def _paste_character(canvas: Image.Image, path: Path, box: tuple[int, int, int, 
     canvas.alpha_composite(character, (x, y))
 
 
+def _draw_market_flow(draw: ImageDraw.ImageDraw, accent: str, x: int, y: int) -> None:
+    draw.rounded_rectangle((x, y, x + 230, y + 54), radius=16, fill="#ffffff", outline=accent, width=2)
+    draw.line((x + 22, y + 34, x + 72, y + 18, x + 122, y + 29, x + 178, y + 14), fill=accent, width=5)
+    draw.polygon([(x + 178, y + 14), (x + 164, y + 12), (x + 172, y + 26)], fill=accent)
+    for offset in [24, 74, 124]:
+        draw.ellipse((x + offset - 4, y + 30 - 4, x + offset + 4, y + 30 + 4), fill=accent)
+
+
 def create_summary_card(
     task_id: str,
     task_config: dict[str, Any],
@@ -124,9 +132,10 @@ def create_summary_card(
     for title_line in title_lines[:2]:
         draw.text((64, title_y), title_line, fill="#111827", font=title_font)
         title_y += 48
-    draw.text((66, 232), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
+    draw.text((66, 254), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
     draw.rounded_rectangle((768, 74, 1020, 222), radius=18, fill="#ffffff", outline=accent, width=3)
     draw.text((810, 103), summary.get("conclusion_label", "様子見"), fill=accent, font=_load_font(40))
+    _draw_market_flow(draw, accent, 772, 232)
 
     draw.rounded_rectangle((38, 326, width - 38, 560), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
     draw.text((64, 362), "結論", fill=accent, font=mini_font)
@@ -178,7 +187,7 @@ def create_summary_card(
         point_y += 10
 
     draw.rounded_rectangle((38, 1468, width - 38, 1868), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
-    draw.rounded_rectangle((64, 1520, width - 64, 1530), radius=4, fill=accent)
+    draw.rounded_rectangle((64, 1550, width - 64, 1560), radius=4, fill=accent)
     draw.text((64, 1502), "今日の3シナリオ", fill="#172033", font=strong_font)
     memo_y = 1568
     for line in summary.get("scenarios", [])[:3]:
