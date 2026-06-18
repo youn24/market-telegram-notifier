@@ -105,6 +105,41 @@ def _keyword_list(task_config: dict[str, Any], sources: dict[str, Any]) -> list[
     return [str(keyword) for keyword in keywords if str(keyword).strip()]
 
 
+def _contains_any(text: str, patterns: list[str]) -> list[str]:
+    lowered = text.lower()
+    return [pattern for pattern in patterns if pattern.lower() in lowered]
+
+
+def _material_categories(title: str, sources: dict[str, Any]) -> list[str]:
+    category_map = sources.get("research", {}).get("material_categories", {})
+    categories: list[str] = []
+    for category, keywords in category_map.items():
+        if _contains_any(title, [str(keyword) for keyword in keywords]):
+            categories.append(str(category))
+    return categories[:3]
+
+
+def _source_quality(source: str, sources: dict[str, Any]) -> tuple[float, str]:
+    preferred_sources = [str(value) for value in sources.get("research", {}).get("preferred_sources", [])]
+    if any(preferred.lower() in source.lower() for preferred in preferred_sources):
+        return 12.0, "優先媒体"
+    if source and source != "Google News":
+        return 5.0, "一般媒体"
+    return 0.0, "媒体未確認"
+
+
+def _noise_penalty(title: str, sources: dict[str, Any]) -> tuple[float, list[str]]:
+    research_config = sources.get("research", {})
+    patterns = [str(value) for value in research_config.get("penalized_title_patterns", [])]
+    matched = _contains_any(title, patterns)
+    return min(30.0, len(matched) * 10.0), matched[:3]
+
+
+def _is_excluded_title(title: str, sources: dict[str, Any]) -> bool:
+    patterns = [str(value) for value in sources.get("research", {}).get("excluded_title_patterns", [])]
+    return bool(_contains_any(title, patterns))
+
+
 def _freshness_score(item: dict[str, Any], half_life_hours: float) -> float:
     published_ts = item.get("published_ts")
     if not published_ts:
@@ -119,17 +154,22 @@ def _freshness_score(item: dict[str, Any], half_life_hours: float) -> float:
     return max(0.0, 30.0 * (0.5 ** (age_hours / max(1.0, half_life_hours))))
 
 
-def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: float) -> dict[str, Any]:
+def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: float, sources: dict[str, Any]) -> dict[str, Any]:
     title = str(item.get("title", ""))
     query_terms = [term for term in str(item.get("query", "")).replace("　", " ").split(" ") if term]
     matched_keywords = [keyword for keyword in keywords if keyword.lower() in title.lower()]
     matched_query_terms = [term for term in query_terms if term.lower() in title.lower()]
     source = str(item.get("source", ""))
+    source_bonus, source_reason = _source_quality(source, sources)
+    noise_penalty, noise_patterns = _noise_penalty(title, sources)
+    categories = _material_categories(title, sources)
 
     score = 0.0
     score += min(45.0, len(matched_keywords) * 12.0)
     score += min(15.0, len(matched_query_terms) * 3.0)
     score += _freshness_score(item, half_life_hours)
+    score += source_bonus
+    score -= noise_penalty
     age_hours = item.get("age_hours")
     if isinstance(age_hours, (int, float)):
         if age_hours > 168:
@@ -138,15 +178,19 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
             score -= 35.0
         elif age_hours > 48:
             score -= 15.0
-    if source and source != "Google News":
-        score += 5.0
 
     item["score"] = round(max(0.0, score), 1)
     item["matched_keywords"] = matched_keywords[:5]
+    item["material_categories"] = categories
+    item["source_quality"] = source_reason
+    item["noise_patterns"] = noise_patterns
     item["research_reason"] = " / ".join(
         [
             f"重要語:{'、'.join(matched_keywords[:3])}" if matched_keywords else "重要語:少なめ",
+            f"分類:{'、'.join(categories)}" if categories else "分類:未分類",
             f"鮮度:{item.get('age_hours', '未確認')}時間前" if item.get("age_hours") is not None else "鮮度:未確認",
+            f"媒体:{source_reason}",
+            f"減点:{'、'.join(noise_patterns)}" if noise_patterns else "減点なし",
         ]
     )
     return item
@@ -157,7 +201,11 @@ def _rank_items(items: list[dict[str, Any]], task_config: dict[str, Any], source
     keywords = _keyword_list(task_config, sources)
     half_life_hours = float(research_config.get("freshness_half_life_hours", 18))
     max_age_hours = float(research_config.get("max_age_hours", 96))
-    scored = [_score_item(item, keywords, half_life_hours) for item in items]
+    scored = [
+        _score_item(item, keywords, half_life_hours, sources)
+        for item in items
+        if not _is_excluded_title(str(item.get("title", "")), sources)
+    ]
     fresh_items = [item for item in scored if item.get("age_hours") is None or item.get("age_hours", 0) <= max_age_hours]
     ranked_source = fresh_items if len(fresh_items) >= min(3, len(scored)) else scored
     return sorted(ranked_source, key=lambda item: item.get("score", 0), reverse=True)

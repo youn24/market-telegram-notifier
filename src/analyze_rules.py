@@ -123,15 +123,23 @@ def _research_lines(raw_data: dict[str, Any]) -> list[str]:
 def _research_theme_lines(raw_data: dict[str, Any]) -> list[str]:
     items = raw_data.get("research", {}).get("items", [])
     keyword_counts: dict[str, int] = {}
+    category_counts: dict[str, int] = {}
     for item in items:
         for keyword in item.get("matched_keywords", []):
             keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
+        for category in item.get("material_categories", []):
+            category_counts[category] = category_counts.get(category, 0) + 1
 
-    if not keyword_counts:
+    lines: list[str] = []
+    for category, count in sorted(category_counts.items(), key=lambda pair: pair[1], reverse=True)[:3]:
+        lines.append(f"材料カテゴリ: {category}（関連見出し {count}件）")
+
+    if not keyword_counts and not lines:
         return ["重要テーマ: ニュース材料は未確認または重要語一致が少なめです。"]
 
     ranked = sorted(keyword_counts.items(), key=lambda pair: pair[1], reverse=True)[:4]
-    return [f"重要テーマ: {keyword}（関連見出し {count}件）" for keyword, count in ranked]
+    lines.extend(f"重要テーマ: {keyword}（関連見出し {count}件）" for keyword, count in ranked)
+    return lines[:5]
 
 
 def _research_digest(raw_data: dict[str, Any]) -> str:
