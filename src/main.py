@@ -21,6 +21,7 @@ from design_director import build_design_direction, write_design_handoff
 from fetch_earnings import fetch_earnings_snapshot
 from fetch_fx import fetch_fx_snapshot
 from fetch_japan_market import fetch_japan_market_snapshot
+from fetch_research import fetch_research_snapshot
 from notify_telegram import send_telegram_notification
 from openai_summary import maybe_generate_openai_summary
 
@@ -121,6 +122,7 @@ def display_title(task_config: dict[str, Any], task_id: str) -> str:
 
 def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
+    raw_data["research"] = fetch_research_snapshot(context.task_id, context.task_config, context.sources)
     summary = build_summary(context.task_id, context.task_config, raw_data, context.rules)
 
     openai_text = maybe_generate_openai_summary(summary)

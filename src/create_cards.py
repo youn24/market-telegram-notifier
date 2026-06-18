@@ -132,6 +132,37 @@ def _draw_market_temperature(
         row_y += 50
 
 
+def _draw_research_chips(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    x: int,
+    y: int,
+    width: int,
+    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    mini_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+) -> int:
+    draw.text((x, y), "材料検索", fill="#172033", font=small_font)
+    chip_y = y + 44
+    items = summary.get("research_items", [])
+    if not items:
+        note = summary.get("research_note", "ニュース検索は未確認")
+        wrapped = _wrap_japanese_text(draw, f"・{note}", mini_font, width)
+        for line in wrapped[:2]:
+            draw.text((x, chip_y), line, fill="#64748b", font=mini_font)
+            chip_y += 26
+        return chip_y
+
+    for item in items[:2]:
+        source = item.get("source", "媒体未確認")
+        title = item.get("title", "未確認")
+        draw.rounded_rectangle((x, chip_y, x + width, chip_y + 54), radius=12, fill="#f0f9ff", outline="#bae6fd", width=1)
+        draw.text((x + 14, chip_y + 8), str(source)[:18], fill="#0369a1", font=mini_font)
+        wrapped_title = _wrap_japanese_text(draw, str(title), mini_font, width - 220)
+        draw.text((x + 190, chip_y + 8), wrapped_title[0], fill="#172033", font=mini_font)
+        chip_y += 64
+    return chip_y
+
+
 def create_summary_card(
     task_id: str,
     task_config: dict[str, Any],
@@ -222,15 +253,15 @@ def create_summary_card(
         point_y += 10
 
     draw.rounded_rectangle((38, 1468, width - 38, 1868), radius=16, fill="#ffffff", outline="#dbe4ef", width=2)
-    draw.rounded_rectangle((64, 1550, width - 64, 1560), radius=4, fill=accent)
-    draw.text((64, 1502), "今日の3シナリオ", fill="#172033", font=strong_font)
-    memo_y = 1568
+    draw.text((64, 1502), "材料検索と3シナリオ", fill="#172033", font=strong_font)
+    research_end_y = _draw_research_chips(draw, summary, 64, 1560, width - 128, small_font, mini_font)
+    draw.rounded_rectangle((64, research_end_y + 14, width - 64, research_end_y + 22), radius=4, fill=accent)
+    memo_y = research_end_y + 36
     for line in summary.get("scenarios", [])[:3]:
-        wrapped = _wrap_japanese_text(draw, f"・{line}", small_font, width - 120)
-        for wrapped_line in wrapped[:2]:
+        wrapped = _wrap_japanese_text(draw, f"・{line}", mini_font, width - 120)
+        for wrapped_line in wrapped[:1]:
             draw.text((82, memo_y), wrapped_line, fill="#475569", font=small_font)
-            memo_y += 28
-        memo_y += 12
+            memo_y += 34
 
     path = output_dir / f"{task_id}_card.png"
     image.convert("RGB").save(path)

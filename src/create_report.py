@@ -51,10 +51,11 @@ def _render_metrics(metrics: list[str]) -> str:
 def _render_digest_tiles(summary: dict[str, Any], raw_data: dict[str, Any]) -> str:
     macro_count = len([item for item in raw_data.get("macro_items", []) if item.get("status") == "ok"])
     market_count = len([item for item in raw_data.get("items", []) if item.get("status") == "ok"])
+    research_count = len(raw_data.get("research", {}).get("items", []))
     tiles = [
         ("結論", summary.get("conclusion_label", "様子見"), "tile-accent"),
         ("取得済み", f"市場 {market_count} / マクロ {macro_count}", "tile-blue"),
-        ("注目", "金利・VIX・為替", "tile-green"),
+        ("材料検索", f"{research_count}件" if research_count else "未確認", "tile-green"),
         ("作戦", "3シナリオで確認", "tile-gold"),
     ]
     return "\n".join(
@@ -306,6 +307,31 @@ def _render_bullets(items: list[str], css_class: str) -> str:
     return "\n".join(rows)
 
 
+def _render_research_cards(summary: dict[str, Any]) -> str:
+    items = summary.get("research_items", [])
+    if not items:
+        return f'<div class="research-card unavailable">{_safe(summary.get("research_note", "材料検索は未確認"))}</div>'
+
+    cards: list[str] = []
+    for item in items[:6]:
+        url = item.get("url", "")
+        title = _safe(item.get("title", "未確認"))
+        source = _safe(item.get("source", "媒体未確認"))
+        published = _safe(item.get("published", "日時未確認"))
+        title_html = f'<a href="{_safe(url)}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
+        cards.append(
+            "\n".join(
+                [
+                    '<article class="research-card">',
+                    f'  <div class="research-meta">{source} / {published}</div>',
+                    f'  <div class="research-title">{title_html}</div>',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(cards)
+
+
 def _copy_if_exists(source: Path | None, destination: Path) -> str | None:
     if source is None or not source.exists():
         return None
@@ -349,6 +375,7 @@ def create_market_report(
     analysis_summary_html = _render_analysis_summary(summary, copied_elephant, copied_otter)
     hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
+    research_html = _render_research_cards(summary)
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
@@ -838,6 +865,37 @@ def create_market_report(
       border-left: 4px solid #2563eb;
       color: #1e3a8a;
     }}
+    .research-grid {{
+      display: grid;
+      gap: 8px;
+    }}
+    .research-card {{
+      border: 1px solid var(--line);
+      border-left: 4px solid #0ea5e9;
+      border-radius: 4px;
+      padding: 12px 14px;
+      background: #ffffff;
+      line-height: 1.6;
+    }}
+    .research-card.unavailable {{
+      border-left-color: #64748b;
+      color: var(--sub);
+      font-weight: 800;
+    }}
+    .research-meta {{
+      color: var(--sub);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
+    .research-title {{
+      font-size: 15px;
+      font-weight: 800;
+    }}
+    .research-title a {{
+      color: #075985;
+      text-decoration: none;
+    }}
     .analysis-summary {{
       display: grid;
       grid-template-columns: 150px 1fr;
@@ -1050,6 +1108,13 @@ def create_market_report(
     <section class="panel">
       <h2>先生の分析要約</h2>
       {analysis_summary_html}
+    </section>
+
+    <section class="panel">
+      <h2>材料検索・ニュース根拠</h2>
+      <div class="research-grid">
+        {research_html}
+      </div>
     </section>
 
     <section class="panel">

@@ -90,6 +90,30 @@ macro:
       label: "2年10年スプレッド"
       unit: "%"
 
+research:
+  provider: "google_news_rss"
+  language: "ja-JP"
+  region: "JP"
+  max_items_per_query: 3
+  max_total_items: 8
+  default_queries:
+    macro:
+      - "米国株 金利 為替 原油 市場"
+      - "FOMC FRB 金利 ドル 円 日本株"
+      - "VIX 米国債利回り 日経平均"
+    japan_market:
+      - "日経平均 日本株 今日 材料"
+      - "東京市場 寄り付き 半導体 銀行 円相場"
+      - "日本株 決算 レーティング 需給"
+    fx:
+      - "ドル円 為替 米金利 今日"
+      - "FX 円相場 FRB 日銀"
+    earnings:
+      - "日本株 決算 発表 引け後"
+      - "決算 上方修正 下方修正 日本株"
+    default:
+      - "金融市場 今日 株 為替 金利"
+
 earnings:
   unavailable_items:
     analysis: "引け後決算分析は初期設定では未確認"

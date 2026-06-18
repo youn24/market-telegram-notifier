@@ -102,6 +102,36 @@ def _macro_temperature(raw_data: dict[str, Any]) -> str:
     return "、".join(reads[:2]) if reads else "マクロは未確認を残して確認"
 
 
+def _research_lines(raw_data: dict[str, Any]) -> list[str]:
+    research = raw_data.get("research", {})
+    items = research.get("items", [])
+    if not items:
+        note = research.get("note", "ニュース検索は未確認")
+        return [f"材料検索: {note}"]
+
+    lines: list[str] = []
+    for item in items[:4]:
+        title = item.get("title", "未確認")
+        source = item.get("source", "媒体未確認")
+        published = item.get("published", "日時未確認")
+        lines.append(f"{title}（{source} / {published}）")
+    return lines
+
+
+def _research_digest(raw_data: dict[str, Any]) -> str:
+    research = raw_data.get("research", {})
+    items = research.get("items", [])
+    if not items:
+        return research.get("note", "材料検索は未確認です。")
+
+    source_names = []
+    for item in items[:3]:
+        source = item.get("source")
+        if source and source not in source_names:
+            source_names.append(source)
+    return f"材料検索では{len(items)}件を確認。主な出所は{'、'.join(source_names) or '未確認'}です。"
+
+
 def _theme_block(task_id: str, task_config: dict[str, Any], tone: str, generated_at: str) -> tuple[str, str]:
     day_seed = int(generated_at[8:10])
     theme_map = {
@@ -448,6 +478,8 @@ def _build_commentary(
     if unavailable_labels:
         comments.append(f"{'、'.join(unavailable_labels)}は未確認なので、ここは断定せずに進めます。")
 
+    comments.append(_research_digest(raw_data))
+
     if not comments:
         comments.append("大きな偏りはまだ薄く、初動の勢いと押し目の質を見たい場面です。")
 
@@ -511,6 +543,7 @@ def build_summary(
     )
 
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
+    research_lines = _research_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -550,4 +583,7 @@ def build_summary(
         "cautions": cautions,
         "scenarios": scenarios,
         "visual_items": _build_visual_items(raw_data),
+        "research_items": raw_data.get("research", {}).get("items", []),
+        "research_lines": research_lines,
+        "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }
