@@ -163,6 +163,9 @@ def _research_coverage_lines(raw_data: dict[str, Any]) -> list[str]:
         marker = "OK" if status == "ok" else "不足" if status == "missing" else "一部"
         lines.append(f"{marker}: {check.get('label', '確認項目')} - {check.get('detail', '未確認')}")
 
+    if coverage.get("followup_triggered"):
+        lines.append(f"追加検索: {len(coverage.get('followup_queries', []))}本")
+
     missing_categories = coverage.get("missing_categories", [])
     if missing_categories:
         lines.append("不足観点: " + " / ".join(str(category) for category in missing_categories[:3]))

@@ -97,6 +97,26 @@ def _queries_for_task(task_config: dict[str, Any], sources: dict[str, Any]) -> l
     return list(default_queries.get(category, default_queries.get("default", [])))
 
 
+def _followup_queries_for_missing(missing_categories: list[str], sources: dict[str, Any]) -> list[str]:
+    research_config = sources.get("research", {})
+    followup_map = research_config.get("followup_queries", {})
+    max_queries = int(research_config.get("max_followup_queries", 3))
+    queries: list[str] = []
+
+    query_groups = [[str(query).strip() for query in followup_map.get(category, []) if str(query).strip()] for category in missing_categories]
+    longest_group = max((len(group) for group in query_groups), default=0)
+    for index in range(longest_group):
+        for group in query_groups:
+            if index >= len(group):
+                continue
+            query_text = group[index]
+            if query_text and query_text not in queries:
+                queries.append(query_text)
+            if len(queries) >= max_queries:
+                return queries
+    return queries
+
+
 def _keyword_list(task_config: dict[str, Any], sources: dict[str, Any]) -> list[str]:
     research_config = sources.get("research", {})
     keyword_map = research_config.get("importance_keywords", {})
@@ -403,6 +423,28 @@ def _research_coverage(
     }
 
 
+def _collect_news_items(
+    queries: list[str],
+    sources: dict[str, Any],
+    seen_titles: set[str],
+    errors: list[str],
+    error_prefix: str = "",
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for query in queries:
+        try:
+            for item in _fetch_google_news(query, sources):
+                title = item.get("title", "")
+                if title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                items.append(item)
+        except Exception as exc:
+            prefix = f"{error_prefix}:" if error_prefix else ""
+            errors.append(f"{prefix}{query}: {exc}")
+    return items
+
+
 def fetch_research_snapshot(
     task_id: str,
     task_config: dict[str, Any],
@@ -423,21 +465,26 @@ def fetch_research_snapshot(
     errors: list[str] = []
     seen_titles: set[str] = set()
 
-    for query in queries:
-        try:
-            for item in _fetch_google_news(query, sources):
-                title = item.get("title", "")
-                if title in seen_titles:
-                    continue
-                seen_titles.add(title)
-                items.append(item)
-        except Exception as exc:
-            errors.append(f"{query}: {exc}")
+    items.extend(_collect_news_items(queries, sources, seen_titles, errors))
 
     max_total = int(sources.get("research", {}).get("max_total_items", 8))
     ranked_items = _rank_items(items, task_config, sources)
     items = _select_diverse_items(ranked_items, sources, max_total)
     coverage = _research_coverage(queries, ranked_items, items, errors, task_config, sources)
+    followup_queries: list[str] = []
+
+    if sources.get("research", {}).get("enable_followup_research", True):
+        followup_queries = _followup_queries_for_missing(coverage.get("missing_categories", []), sources)
+        followup_queries = [query for query in followup_queries if query not in queries]
+        if followup_queries:
+            all_items = ranked_items + _collect_news_items(followup_queries, sources, seen_titles, errors, "followup")
+            all_queries = queries + followup_queries
+            ranked_items = _rank_items(all_items, task_config, sources)
+            items = _select_diverse_items(ranked_items, sources, max_total)
+            coverage = _research_coverage(all_queries, ranked_items, items, errors, task_config, sources)
+
+    coverage["followup_triggered"] = bool(followup_queries)
+    coverage["followup_queries"] = followup_queries
 
     if not items:
         return {
