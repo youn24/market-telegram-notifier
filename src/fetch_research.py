@@ -423,6 +423,58 @@ def _research_coverage(
     }
 
 
+def _research_evidence_packs(
+    selected_items: list[dict[str, Any]],
+    ranked_items: list[dict[str, Any]],
+    coverage: dict[str, Any],
+) -> list[dict[str, Any]]:
+    category_names: list[str] = []
+    for category in coverage.get("required_categories", []):
+        if category not in category_names:
+            category_names.append(str(category))
+    for category in coverage.get("covered_categories", []):
+        if category not in category_names:
+            category_names.append(str(category))
+
+    packs: list[dict[str, Any]] = []
+    for category in category_names:
+        adopted = [item for item in selected_items if category in item.get("material_categories", [])]
+        candidates = [item for item in ranked_items if category in item.get("material_categories", [])]
+        source_count = len({item.get("source") for item in adopted if item.get("source")})
+        fresh_count = len([item for item in adopted if isinstance(item.get("age_hours"), (int, float)) and item["age_hours"] <= 24])
+
+        if adopted:
+            best = max(adopted, key=lambda item: float(item.get("score", 0)))
+            status = "ok"
+            detail = f"採用{len(adopted)}件 / 媒体{source_count}種 / 24時間内{fresh_count}件"
+        elif candidates:
+            best = max(candidates, key=lambda item: float(item.get("score", 0)))
+            status = "candidate"
+            detail = f"候補{len(candidates)}件あり、採用材料は不足"
+        else:
+            best = {}
+            status = "missing"
+            detail = "該当材料なし"
+
+        packs.append(
+            {
+                "category": category,
+                "status": status,
+                "detail": detail,
+                "adopted_count": len(adopted),
+                "candidate_count": len(candidates),
+                "source_count": source_count,
+                "fresh_count": fresh_count,
+                "top_title": best.get("title", "未確認"),
+                "top_source": best.get("source", "媒体未確認"),
+                "top_url": best.get("url", ""),
+                "top_published": best.get("published", "日時未確認"),
+                "top_score": best.get("score", "未採点"),
+            }
+        )
+    return packs
+
+
 def _collect_news_items(
     queries: list[str],
     sources: dict[str, Any],
@@ -458,6 +510,7 @@ def fetch_research_snapshot(
             "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             "items": [],
             "coverage": coverage,
+            "evidence_packs": _research_evidence_packs([], [], coverage),
             "note": "検索クエリが未設定のため未確認",
         }
 
@@ -485,6 +538,7 @@ def fetch_research_snapshot(
 
     coverage["followup_triggered"] = bool(followup_queries)
     coverage["followup_queries"] = followup_queries
+    evidence_packs = _research_evidence_packs(items, ranked_items, coverage)
 
     if not items:
         return {
@@ -492,6 +546,7 @@ def fetch_research_snapshot(
             "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             "items": [],
             "coverage": coverage,
+            "evidence_packs": evidence_packs,
             "note": "ニュース検索は未確認: " + (" / ".join(errors[:2]) if errors else "取得なし"),
         }
 
@@ -501,6 +556,7 @@ def fetch_research_snapshot(
         "items": items,
         "confidence": _research_confidence(items),
         "coverage": coverage,
+        "evidence_packs": evidence_packs,
         "top_keywords": _keyword_list(task_config, sources)[:8],
         "note": "Google News RSSで検索。ヘッドラインは材料確認用で、数値は推測しません。",
     }

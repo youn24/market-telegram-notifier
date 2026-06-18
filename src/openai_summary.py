@@ -32,6 +32,8 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             summary.get("research_confidence_line", ""),
             "Research coverage and missing viewpoints:",
             *summary.get("research_coverage_lines", []),
+            "Research evidence by category. Use ok evidence strongly, mention candidate/missing viewpoints cautiously:",
+            *summary.get("research_evidence_lines", []),
             "Research themes:",
             *summary.get("research_theme_lines", []),
             "Ranked research headlines:",

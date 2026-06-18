@@ -319,6 +319,10 @@ def _render_research_cards(summary: dict[str, Any]) -> str:
     if coverage_lines:
         coverage_items = "".join(f"<li>{_safe(line)}</li>" for line in coverage_lines[:6])
         cards.append(f'<ul class="research-coverage">{coverage_items}</ul>')
+    evidence_lines = summary.get("research_evidence_lines", [])
+    if evidence_lines:
+        evidence_items = "".join(f"<li>{_safe(line)}</li>" for line in evidence_lines[:6])
+        cards.append(f'<ul class="research-evidence">{evidence_items}</ul>')
     theme_html = "".join(f'<div class="research-theme-chip">{_safe(line.replace("重要テーマ: ", ""))}</div>' for line in summary.get("research_theme_lines", [])[:4])
     if theme_html:
         cards.append(f'<div class="research-themes">{theme_html}</div>')
@@ -916,6 +920,25 @@ def create_market_report(
       font-size: 12px;
       font-weight: 900;
       line-height: 1.55;
+    }}
+    .research-evidence {{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 8px;
+    }}
+    .research-evidence li {{
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      border-radius: 4px;
+      background: #f0fdf4;
+      color: #14532d;
+      padding: 9px 11px;
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.6;
     }}
     .research-theme-chip {{
       border: 1px solid #bae6fd;

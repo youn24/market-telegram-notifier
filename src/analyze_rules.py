@@ -172,6 +172,29 @@ def _research_coverage_lines(raw_data: dict[str, Any]) -> list[str]:
     return lines[:7]
 
 
+def _research_evidence_lines(raw_data: dict[str, Any]) -> list[str]:
+    packs = raw_data.get("research", {}).get("evidence_packs", [])
+    if not packs:
+        return ["カテゴリ別根拠: 未確認"]
+
+    lines: list[str] = []
+    for pack in packs[:6]:
+        category = pack.get("category", "未分類")
+        status = str(pack.get("status", "missing"))
+        if status == "ok":
+            marker = "根拠あり"
+        elif status == "candidate":
+            marker = "候補のみ"
+        else:
+            marker = "不足"
+        source = pack.get("top_source", "媒体未確認")
+        score = pack.get("top_score", "未採点")
+        title = str(pack.get("top_title", "未確認"))
+        detail = pack.get("detail", "未確認")
+        lines.append(f"{category}: {marker} - {detail} / {source} / score={score} / {title}")
+    return lines
+
+
 def _research_digest(raw_data: dict[str, Any]) -> str:
     research = raw_data.get("research", {})
     items = research.get("items", [])
@@ -633,6 +656,7 @@ def build_summary(
     research_theme_lines = _research_theme_lines(raw_data)
     research_confidence_line = _research_confidence_line(raw_data)
     research_coverage_lines = _research_coverage_lines(raw_data)
+    research_evidence_lines = _research_evidence_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -678,5 +702,7 @@ def build_summary(
         "research_theme_lines": research_theme_lines,
         "research_confidence_line": research_confidence_line,
         "research_coverage_lines": research_coverage_lines,
+        "research_evidence_lines": research_evidence_lines,
+        "research_evidence_packs": raw_data.get("research", {}).get("evidence_packs", []),
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }
