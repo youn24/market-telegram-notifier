@@ -99,9 +99,12 @@ research:
   freshness_half_life_hours: 18
   search_window_days: 3
   max_age_hours: 96
+  max_items_per_source: 2
+  prefer_category_diversity: true
+  min_score: 20
   preferred_sources: ["日本経済新聞", "ロイター", "ブルームバーグ", "NHK", "時事通信", "株探", "会社四季報オンライン", "Reuters", "Bloomberg"]
   penalized_title_patterns: ["株価・株式情報", "夜間PTS", "掲示板", "ADR日本株ランキング", "投信", "ETF", "ランキング"]
-  excluded_title_patterns: ["ログイン", "広告", "PR TIMES"]
+  excluded_title_patterns: ["ログイン", "広告", "PR TIMES", "株価・株式情報", "夜間PTS", "掲示板"]
   importance_keywords:
     macro: ["FRB", "FOMC", "金利", "米10年", "雇用", "CPI", "PCE", "ドル", "円", "原油", "VIX"]
     japan_market: ["日経平均", "TOPIX", "半導体", "銀行", "為替", "決算", "上方修正", "下方修正", "レーティング", "需給"]

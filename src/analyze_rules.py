@@ -120,6 +120,14 @@ def _research_lines(raw_data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _research_confidence_line(raw_data: dict[str, Any]) -> str:
+    confidence = raw_data.get("research", {}).get("confidence", {})
+    label = confidence.get("label", "低")
+    score = confidence.get("score", 0)
+    reason = confidence.get("reason", "検索材料は未確認")
+    return f"リサーチ信頼度: {label}（{score}/100）- {reason}"
+
+
 def _research_theme_lines(raw_data: dict[str, Any]) -> list[str]:
     items = raw_data.get("research", {}).get("items", [])
     keyword_counts: dict[str, int] = {}
@@ -155,7 +163,9 @@ def _research_digest(raw_data: dict[str, Any]) -> str:
             source_names.append(source)
     top_item = items[0]
     score = top_item.get("score", "未採点")
-    return f"材料検索では{len(items)}件を確認。最上位材料はscore {score}、主な出所は{'、'.join(source_names) or '未確認'}です。"
+    confidence = raw_data.get("research", {}).get("confidence", {})
+    confidence_label = confidence.get("label", "低")
+    return f"材料検索では{len(items)}件を確認。信頼度は{confidence_label}、最上位材料はscore {score}、主な出所は{'、'.join(source_names) or '未確認'}です。"
 
 
 def _theme_block(task_id: str, task_config: dict[str, Any], tone: str, generated_at: str) -> tuple[str, str]:
@@ -396,6 +406,34 @@ def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
     return visual_items
 
 
+def _build_sparkline_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
+    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "DOLLAR_BROAD"]
+    source_items = raw_data.get("items", []) + raw_data.get("macro_items", [])
+    by_key = {item.get("key"): item for item in source_items}
+    ordered_items = [by_key[key] for key in preferred_keys if key in by_key]
+    ordered_items.extend(item for item in source_items if item not in ordered_items)
+
+    sparkline_items: list[dict[str, Any]] = []
+    for item in ordered_items:
+        series = [
+            {"date": point.get("date"), "value": point.get("value")}
+            for point in item.get("series", [])
+            if point.get("value") is not None
+        ]
+        if len(series) < 2:
+            continue
+        sparkline_items.append(
+            {
+                "label": item.get("label", "未確認"),
+                "series": series[-7:],
+                "change_pct": item.get("change_pct"),
+            }
+        )
+        if len(sparkline_items) >= 4:
+            break
+    return sparkline_items
+
+
 def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
     for item in items:
         if item.get("key") == key:
@@ -571,6 +609,7 @@ def build_summary(
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
     research_lines = _research_lines(raw_data)
     research_theme_lines = _research_theme_lines(raw_data)
+    research_confidence_line = _research_confidence_line(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -610,8 +649,10 @@ def build_summary(
         "cautions": cautions,
         "scenarios": scenarios,
         "visual_items": _build_visual_items(raw_data),
+        "sparkline_items": _build_sparkline_items(raw_data),
         "research_items": raw_data.get("research", {}).get("items", []),
         "research_lines": research_lines,
         "research_theme_lines": research_theme_lines,
+        "research_confidence_line": research_confidence_line,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }
