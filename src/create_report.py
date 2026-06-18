@@ -315,6 +315,10 @@ def _render_research_cards(summary: dict[str, Any]) -> str:
     cards: list[str] = []
     confidence = _safe(summary.get("research_confidence_line", "リサーチ信頼度: 未確認"))
     cards.append(f'<div class="research-confidence">{confidence}</div>')
+    coverage_lines = summary.get("research_coverage_lines", [])
+    if coverage_lines:
+        coverage_items = "".join(f"<li>{_safe(line)}</li>" for line in coverage_lines[:6])
+        cards.append(f'<ul class="research-coverage">{coverage_items}</ul>')
     theme_html = "".join(f'<div class="research-theme-chip">{_safe(line.replace("重要テーマ: ", ""))}</div>' for line in summary.get("research_theme_lines", [])[:4])
     if theme_html:
         cards.append(f'<div class="research-themes">{theme_html}</div>')
@@ -893,6 +897,25 @@ def create_market_report(
       font-size: 13px;
       font-weight: 900;
       line-height: 1.6;
+    }}
+    .research-coverage {{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 6px;
+    }}
+    .research-coverage li {{
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 4px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.55;
     }}
     .research-theme-chip {{
       border: 1px solid #bae6fd;

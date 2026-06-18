@@ -291,7 +291,11 @@ def _draw_research_and_scenarios(
     if confidence:
         draw.rounded_rectangle((x + 26, y + 62, x + width - 26, y + 100), radius=14, fill=palette["soft"])
         _draw_wrapped(draw, (x + 42, y + 71), confidence, small_font, palette["accent_dark"], width - 84, 1)
-    item_y = y + 114
+    coverage_lines = summary.get("research_coverage_lines", [])
+    if coverage_lines:
+        draw.rounded_rectangle((x + 26, y + 104, x + width - 26, y + 132), radius=12, fill="#eff6ff", outline="#bfdbfe")
+        _draw_wrapped(draw, (x + 42, y + 109), str(coverage_lines[0]), _load_font(14), "#1d4ed8", width - 84, 1)
+    item_y = y + 142
     items = summary.get("research_items", [])
     if not items:
         note = summary.get("research_note", "材料検索は未確認です。")
@@ -304,16 +308,16 @@ def _draw_research_and_scenarios(
         draw.text((x + 42, item_y + 9), f"{index}. {source} / score {score}", fill="#0369a1", font=small_font)
         _draw_wrapped(draw, (x + 42, item_y + 32), title, body_font, "#1f2937", width - 84, 1)
         item_y += 72
-    scenario_y = y + 260
+    scenario_y = y + 286
     labels = ["強気", "中立", "警戒"]
     colors = ["#dcfce7", "#fef3c7", "#fee2e2"]
     for index, scenario in enumerate(summary.get("scenarios", [])[:3]):
         sx = x + 26 + index * ((width - 68) // 3 + 8)
         sw = (width - 84) // 3
-        draw.rounded_rectangle((sx, scenario_y, sx + sw, y + 326), radius=15, fill=colors[index], outline="#ead7ba")
+        draw.rounded_rectangle((sx, scenario_y, sx + sw, y + 336), radius=15, fill=colors[index], outline="#ead7ba")
         draw.text((sx + 14, scenario_y + 10), labels[index], fill="#7c4a22", font=small_font)
         cleaned = str(scenario).split(":", 1)[-1].strip()
-        _draw_wrapped(draw, (sx + 14, scenario_y + 32), cleaned, _load_font(14), "#334155", sw - 28, 2)
+        _draw_wrapped(draw, (sx + 14, scenario_y + 32), cleaned, _load_font(13), "#334155", sw - 28, 1)
 
 
 def create_summary_card(

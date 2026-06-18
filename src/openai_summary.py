@@ -30,6 +30,8 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             *summary.get("scenarios", []),
             "Research headlines from free search/RSS. Treat these as context, not verified numeric data:",
             summary.get("research_confidence_line", ""),
+            "Research coverage and missing viewpoints:",
+            *summary.get("research_coverage_lines", []),
             "Research themes:",
             *summary.get("research_theme_lines", []),
             "Ranked research headlines:",

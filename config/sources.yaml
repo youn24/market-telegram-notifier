@@ -94,8 +94,8 @@ research:
   provider: "google_news_rss"
   language: "ja-JP"
   region: "JP"
-  max_items_per_query: 3
-  max_total_items: 8
+  max_items_per_query: 4
+  max_total_items: 10
   freshness_half_life_hours: 18
   search_window_days: 3
   max_age_hours: 96
@@ -103,8 +103,10 @@ research:
   prefer_category_diversity: true
   min_score: 20
   preferred_sources: ["日本経済新聞", "ロイター", "ブルームバーグ", "NHK", "時事通信", "株探", "会社四季報オンライン", "Reuters", "Bloomberg"]
-  penalized_title_patterns: ["株価・株式情報", "夜間PTS", "掲示板", "ADR日本株ランキング", "投信", "ETF", "ランキング"]
-  excluded_title_patterns: ["ログイン", "広告", "PR TIMES", "株価・株式情報", "夜間PTS", "掲示板"]
+  excluded_sources: ["note"]
+  penalized_sources: ["Yahoo!ファイナンス", "みんかぶ", "Investing.com"]
+  penalized_title_patterns: ["株価・株式情報", "夜間PTS", "掲示板", "ADR日本株ランキング", "投信", "ETF", "ランキング", "指数情報・推移", "無料書き起こし"]
+  excluded_title_patterns: ["ログイン", "広告", "PR TIMES", "株価・株式情報", "夜間PTS", "掲示板", "指数情報・推移", "無料書き起こし"]
   importance_keywords:
     macro: ["FRB", "FOMC", "金利", "米10年", "雇用", "CPI", "PCE", "ドル", "円", "原油", "VIX"]
     japan_market: ["日経平均", "TOPIX", "半導体", "銀行", "為替", "決算", "上方修正", "下方修正", "レーティング", "需給"]
@@ -123,16 +125,24 @@ research:
       - "米国株 金利 為替 原油 市場"
       - "FOMC FRB 金利 ドル 円 日本株"
       - "VIX 米国債利回り 日経平均"
+      - "米国 経済指標 CPI PCE 雇用 FRB 今日"
+      - "原油 金 ドル指数 VIX 米国株 今日"
     japan_market:
       - "日経平均 日本株 今日 材料"
       - "東京市場 寄り付き 半導体 銀行 円相場"
       - "日本株 決算 レーティング 需給"
+      - "ドル円 円相場 日本株 日経平均 今日"
+      - "日本株 決算 上方修正 下方修正 今日"
+      - "日本株 信用取引 空売り レーティング 今日"
     fx:
       - "ドル円 為替 米金利 今日"
       - "FX 円相場 FRB 日銀"
+      - "ドル円 米10年金利 日米金利差 今日"
+      - "円相場 日銀 介入 米雇用 CPI"
     earnings:
       - "日本株 決算 発表 引け後"
       - "決算 上方修正 下方修正 日本株"
+      - "決算 増益 減益 通期 業績予想 日本株"
     default:
       - "金融市場 今日 株 為替 金利"
 

@@ -128,6 +128,13 @@ def _source_quality(source: str, sources: dict[str, Any]) -> tuple[float, str]:
     return 0.0, "媒体未確認"
 
 
+def _source_penalty(source: str, sources: dict[str, Any]) -> tuple[float, list[str]]:
+    research_config = sources.get("research", {})
+    patterns = [str(value) for value in research_config.get("penalized_sources", [])]
+    matched = _contains_any(source, patterns)
+    return min(24.0, len(matched) * 8.0), matched[:3]
+
+
 def _noise_penalty(title: str, sources: dict[str, Any]) -> tuple[float, list[str]]:
     research_config = sources.get("research", {})
     patterns = [str(value) for value in research_config.get("penalized_title_patterns", [])]
@@ -138,6 +145,11 @@ def _noise_penalty(title: str, sources: dict[str, Any]) -> tuple[float, list[str
 def _is_excluded_title(title: str, sources: dict[str, Any]) -> bool:
     patterns = [str(value) for value in sources.get("research", {}).get("excluded_title_patterns", [])]
     return bool(_contains_any(title, patterns))
+
+
+def _is_excluded_source(source: str, sources: dict[str, Any]) -> bool:
+    patterns = [str(value) for value in sources.get("research", {}).get("excluded_sources", [])]
+    return bool(_contains_any(source, patterns))
 
 
 def _freshness_score(item: dict[str, Any], half_life_hours: float) -> float:
@@ -161,6 +173,7 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
     matched_query_terms = [term for term in query_terms if term.lower() in title.lower()]
     source = str(item.get("source", ""))
     source_bonus, source_reason = _source_quality(source, sources)
+    source_penalty, source_penalty_patterns = _source_penalty(source, sources)
     noise_penalty, noise_patterns = _noise_penalty(title, sources)
     categories = _material_categories(title, sources)
 
@@ -169,6 +182,7 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
     score += min(15.0, len(matched_query_terms) * 3.0)
     score += _freshness_score(item, half_life_hours)
     score += source_bonus
+    score -= source_penalty
     score -= noise_penalty
     age_hours = item.get("age_hours")
     if isinstance(age_hours, (int, float)):
@@ -184,6 +198,7 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
     item["material_categories"] = categories
     item["source_quality"] = source_reason
     item["noise_patterns"] = noise_patterns
+    item["source_penalty_patterns"] = source_penalty_patterns
     item["research_reason"] = " / ".join(
         [
             f"重要語:{'、'.join(matched_keywords[:3])}" if matched_keywords else "重要語:少なめ",
@@ -205,6 +220,7 @@ def _rank_items(items: list[dict[str, Any]], task_config: dict[str, Any], source
         _score_item(item, keywords, half_life_hours, sources)
         for item in items
         if not _is_excluded_title(str(item.get("title", "")), sources)
+        and not _is_excluded_source(str(item.get("source", "")), sources)
     ]
     fresh_items = [item for item in scored if item.get("age_hours") is None or item.get("age_hours", 0) <= max_age_hours]
     ranked_source = fresh_items if len(fresh_items) >= min(3, len(scored)) else scored
@@ -295,6 +311,98 @@ def _research_confidence(items: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _required_categories(task_config: dict[str, Any], sources: dict[str, Any]) -> list[str]:
+    category_names = list(sources.get("research", {}).get("material_categories", {}).keys())
+    if not category_names:
+        return []
+
+    if task_config.get("focus") == "macro":
+        target_indexes = [0, 1, 5]
+    elif task_config.get("category") == "fx":
+        target_indexes = [1, 0, 5]
+    elif task_config.get("category") == "earnings":
+        target_indexes = [2, 3]
+    else:
+        target_indexes = [1, 2, 3, 4]
+
+    required: list[str] = []
+    for index in target_indexes:
+        if 0 <= index < len(category_names):
+            required.append(str(category_names[index]))
+    return required
+
+
+def _research_coverage(
+    queries: list[str],
+    ranked_items: list[dict[str, Any]],
+    selected_items: list[dict[str, Any]],
+    errors: list[str],
+    task_config: dict[str, Any],
+    sources: dict[str, Any],
+) -> dict[str, Any]:
+    selected_sources = {item.get("source") for item in selected_items if item.get("source")}
+    selected_categories = {category for item in selected_items for category in item.get("material_categories", [])}
+    fresh_count = len([item for item in selected_items if isinstance(item.get("age_hours"), (int, float)) and item["age_hours"] <= 24])
+    required_categories = _required_categories(task_config, sources)
+    missing_categories = [category for category in required_categories if category not in selected_categories]
+
+    score = 0
+    score += min(25, len(queries) * 7)
+    score += min(25, len(selected_items) * 3)
+    score += min(20, len(selected_sources) * 4)
+    score += min(20, len(selected_categories) * 5)
+    score += min(10, fresh_count * 2)
+    score -= min(20, len(errors) * 5)
+    score -= min(25, len(missing_categories) * 8)
+    score = max(0, min(100, round(score)))
+
+    if score >= 75:
+        label = "広い"
+    elif score >= 50:
+        label = "標準"
+    else:
+        label = "不足"
+
+    checks = [
+        {"label": "検索クエリ", "status": "ok" if queries else "missing", "detail": f"{len(queries)}本"},
+        {
+            "label": "採用材料",
+            "status": "ok" if len(selected_items) >= 5 else "partial" if selected_items else "missing",
+            "detail": f"{len(selected_items)}件 / 候補{len(ranked_items)}件",
+        },
+        {
+            "label": "情報源分散",
+            "status": "ok" if len(selected_sources) >= 4 else "partial" if selected_sources else "missing",
+            "detail": f"{len(selected_sources)}媒体",
+        },
+        {
+            "label": "材料カテゴリ",
+            "status": "ok" if not missing_categories else "partial",
+            "detail": f"{len(selected_categories)}分類",
+        },
+        {
+            "label": "鮮度",
+            "status": "ok" if fresh_count >= 3 else "partial" if fresh_count else "missing",
+            "detail": f"24時間内{fresh_count}件",
+        },
+    ]
+
+    return {
+        "label": label,
+        "score": score,
+        "checks": checks,
+        "required_categories": required_categories,
+        "covered_categories": sorted(str(category) for category in selected_categories),
+        "missing_categories": missing_categories,
+        "source_count": len(selected_sources),
+        "fresh_count": fresh_count,
+        "query_count": len(queries),
+        "candidate_count": len(ranked_items),
+        "selected_count": len(selected_items),
+        "errors": errors[:3],
+    }
+
+
 def fetch_research_snapshot(
     task_id: str,
     task_config: dict[str, Any],
@@ -302,10 +410,12 @@ def fetch_research_snapshot(
 ) -> dict[str, Any]:
     queries = _queries_for_task(task_config, sources)
     if not queries:
+        coverage = _research_coverage([], [], [], [], task_config, sources)
         return {
             "status": "unavailable",
             "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             "items": [],
+            "coverage": coverage,
             "note": "検索クエリが未設定のため未確認",
         }
 
@@ -327,12 +437,14 @@ def fetch_research_snapshot(
     max_total = int(sources.get("research", {}).get("max_total_items", 8))
     ranked_items = _rank_items(items, task_config, sources)
     items = _select_diverse_items(ranked_items, sources, max_total)
+    coverage = _research_coverage(queries, ranked_items, items, errors, task_config, sources)
 
     if not items:
         return {
             "status": "unavailable",
             "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             "items": [],
+            "coverage": coverage,
             "note": "ニュース検索は未確認: " + (" / ".join(errors[:2]) if errors else "取得なし"),
         }
 
@@ -341,6 +453,7 @@ def fetch_research_snapshot(
         "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         "items": items,
         "confidence": _research_confidence(items),
+        "coverage": coverage,
         "top_keywords": _keyword_list(task_config, sources)[:8],
         "note": "Google News RSSで検索。ヘッドラインは材料確認用で、数値は推測しません。",
     }

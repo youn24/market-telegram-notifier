@@ -150,6 +150,25 @@ def _research_theme_lines(raw_data: dict[str, Any]) -> list[str]:
     return lines[:5]
 
 
+def _research_coverage_lines(raw_data: dict[str, Any]) -> list[str]:
+    coverage = raw_data.get("research", {}).get("coverage", {})
+    if not coverage:
+        return ["検索カバレッジ: 未確認"]
+
+    lines = [
+        f"検索カバレッジ: {coverage.get('label', '未確認')}（{coverage.get('score', 0)}/100）",
+    ]
+    for check in coverage.get("checks", [])[:5]:
+        status = str(check.get("status", "partial"))
+        marker = "OK" if status == "ok" else "不足" if status == "missing" else "一部"
+        lines.append(f"{marker}: {check.get('label', '確認項目')} - {check.get('detail', '未確認')}")
+
+    missing_categories = coverage.get("missing_categories", [])
+    if missing_categories:
+        lines.append("不足観点: " + " / ".join(str(category) for category in missing_categories[:3]))
+    return lines[:7]
+
+
 def _research_digest(raw_data: dict[str, Any]) -> str:
     research = raw_data.get("research", {})
     items = research.get("items", [])
@@ -610,6 +629,7 @@ def build_summary(
     research_lines = _research_lines(raw_data)
     research_theme_lines = _research_theme_lines(raw_data)
     research_confidence_line = _research_confidence_line(raw_data)
+    research_coverage_lines = _research_coverage_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -654,5 +674,6 @@ def build_summary(
         "research_lines": research_lines,
         "research_theme_lines": research_theme_lines,
         "research_confidence_line": research_confidence_line,
+        "research_coverage_lines": research_coverage_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }
