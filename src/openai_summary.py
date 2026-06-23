@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
 import requests
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -128,7 +131,8 @@ def _maybe_generate_gemini_summary(summary: dict[str, Any]) -> str | None:
         parts = candidates[0].get("content", {}).get("parts", [])
         text = "\n".join(part.get("text", "").strip() for part in parts if part.get("text", "").strip()).strip()
         return text or None
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning("Gemini要約をスキップしました: %s", exc)
         return None
 
 
@@ -159,7 +163,8 @@ def _maybe_generate_openai_summary(summary: dict[str, Any]) -> str | None:
         payload = response.json()
         text = payload.get("output_text", "").strip()
         return text or None
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning("OpenAI要約をスキップしました: %s", exc)
         return None
 
 

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlencode
+import re
 import xml.etree.ElementTree as ET
 
 import requests
@@ -130,6 +131,13 @@ def _contains_any(text: str, patterns: list[str]) -> list[str]:
     return [pattern for pattern in patterns if pattern.lower() in lowered]
 
 
+def _normalize_title_key(title: str) -> str:
+    normalized = title.lower()
+    normalized = re.sub(r"\s+-\s+[^-]+$", "", normalized)
+    normalized = re.sub(r"[^\wぁ-んァ-ン一-龥]+", "", normalized)
+    return normalized[:90]
+
+
 def _material_categories(title: str, sources: dict[str, Any]) -> list[str]:
     category_map = sources.get("research", {}).get("material_categories", {})
     categories: list[str] = []
@@ -204,6 +212,8 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
     score += source_bonus
     score -= source_penalty
     score -= noise_penalty
+    if not matched_keywords and not categories and len(matched_query_terms) < 2:
+        score -= 18.0
     age_hours = item.get("age_hours")
     if isinstance(age_hours, (int, float)):
         if age_hours > 168:
@@ -487,9 +497,10 @@ def _collect_news_items(
         try:
             for item in _fetch_google_news(query, sources):
                 title = item.get("title", "")
-                if title in seen_titles:
+                title_key = _normalize_title_key(str(title))
+                if not title_key or title_key in seen_titles:
                     continue
-                seen_titles.add(title)
+                seen_titles.add(title_key)
                 items.append(item)
         except Exception as exc:
             prefix = f"{error_prefix}:" if error_prefix else ""
