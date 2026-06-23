@@ -380,6 +380,243 @@ def _draw_research_and_scenarios(
         _draw_wrapped(draw, (sx + 60, scenario_y + 8), cleaned, _load_font(11), "#334155", sw - 72, 1)
 
 
+def _dark_palette(tone: str) -> dict[str, str]:
+    palettes = {
+        "bull": {"accent": "#22c55e", "accent2": "#60a5fa", "chip": "上昇優位 / 押し目監視"},
+        "bear": {"accent": "#ef4444", "accent2": "#f59e0b", "chip": "警戒優先 / 戻り売り注意"},
+        "neutral": {"accent": "#38bdf8", "accent2": "#facc15", "chip": "強弱まちまち / 見極め"},
+    }
+    return palettes.get(tone, palettes["neutral"])
+
+
+def _draw_dark_background(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw.rectangle((0, 0, width, height), fill="#030712")
+    for y in range(height):
+        if y % 3 != 0:
+            continue
+        shade = int(10 + 22 * (y / max(1, height)))
+        draw.line((0, y, width, y), fill=(5, 18 + shade // 3, 32 + shade, 255), width=3)
+    for x, y, r, color in [
+        (130, 120, 190, "#0f2a44"),
+        (950, 520, 260, "#082f49"),
+        (100, 1520, 260, "#111827"),
+        (970, 1760, 190, "#1e1b4b"),
+    ]:
+        draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+
+
+def _draw_panel(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    title: str | None = None,
+    accent: str = "#38bdf8",
+) -> None:
+    x1, y1, x2, y2 = box
+    draw.rounded_rectangle(box, radius=24, fill="#0b1624", outline="#334155", width=2)
+    draw.rounded_rectangle((x1 + 2, y1 + 2, x2 - 2, y2 - 2), radius=22, outline="#10243a", width=2)
+    if title:
+        draw.text((x1 + 26, y1 + 18), title, fill="#e5e7eb", font=_load_font(28, bold=True))
+        draw.line((x1 + 26, y1 + 60, x2 - 26, y1 + 60), fill="#1f3b57", width=1)
+
+
+def _draw_chip(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    text: str,
+    color: str,
+    fill: str,
+) -> None:
+    draw.rounded_rectangle(box, radius=16, fill=fill, outline=color, width=2)
+    font = _load_font(24, bold=True)
+    x1, y1, x2, y2 = box
+    draw.text((x1 + (x2 - x1 - _text_width(draw, text, font)) // 2, y1 + 12), text, fill=color, font=font)
+
+
+def _trend_counts(visual_items: list[dict[str, Any]]) -> tuple[int, int]:
+    up = len([item for item in visual_items if isinstance(item.get("change_pct"), (int, float)) and item["change_pct"] > 0])
+    down = len([item for item in visual_items if isinstance(item.get("change_pct"), (int, float)) and item["change_pct"] < 0])
+    return up, down
+
+
+def _headline_chip(summary: dict[str, Any], visual_items: list[dict[str, Any]]) -> str:
+    vix = next((item for item in visual_items if "VIX" in str(item.get("label", "")).upper()), None)
+    vix_change = vix.get("change_pct") if vix else None
+    tone = summary.get("market_tone", "neutral")
+    if isinstance(vix_change, (int, float)) and vix_change >= 1.0:
+        return "VIX上昇 / 警戒感あり"
+    if tone == "bull":
+        return "指数強め / 買い優勢"
+    if tone == "bear":
+        return "下落優勢 / 守り重視"
+    return "強弱混在 / 見極め"
+
+
+def _normalized_points(series: list[dict[str, Any]], max_points: int = 6) -> list[float]:
+    values = [point.get("value") for point in series if point.get("value") is not None][-max_points:]
+    if len(values) < 2 or not values[0]:
+        return []
+    return [(float(value) / float(values[0])) * 100 for value in values]
+
+
+def _draw_dark_header(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    task_config: dict[str, Any],
+    visual_items: list[dict[str, Any]],
+    palette: dict[str, str],
+    x: int,
+    y: int,
+    width: int,
+) -> None:
+    title = str(task_config.get("title", "相場チェック"))
+    icon = "☀" if "7:00" in title or "朝" in title else "◷"
+    draw.text((x + 24, y + 22), icon, fill=palette["accent2"], font=_load_font(38, bold=True))
+    _draw_wrapped(draw, (x + 82, y + 20), title, _load_font(36, bold=True), "#f8fafc", width - 180, 2)
+    draw.text((x + 82, y + 112), "直近6営業日比較（初日=100）", fill="#cbd5e1", font=_load_font(24, bold=True))
+    draw.rounded_rectangle((x + width - 280, y + 104, x + width - 28, y + 146), radius=18, fill="#10243a", outline="#1e3a5f")
+    draw.text((x + width - 250, y + 112), "表示を整理・補正済み", fill="#bfdbfe", font=_load_font(18, bold=True))
+    up, down = _trend_counts(visual_items)
+    chip_y = y + 172
+    _draw_chip(draw, (x + 24, chip_y, x + 235, chip_y + 64), f"↗ 上昇 {up}", "#4ade80", "#0f2f22")
+    _draw_chip(draw, (x + 255, chip_y, x + 466, chip_y + 64), f"↘ 下落 {down}", "#fb7185", "#33151f")
+    _draw_chip(draw, (x + 486, chip_y, x + width - 28, chip_y + 64), f"★ {_headline_chip(summary, visual_items)}", "#60a5fa", "#0b2442")
+
+
+def _draw_dark_line_chart(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> None:
+    _draw_panel(draw, (x, y, x + width, y + height), "直近6営業日の推移（初日=100）")
+    items = summary.get("sparkline_items", [])[:8]
+    plot_x = x + 64
+    plot_y = y + 94
+    plot_w = width - 350
+    plot_h = height - 178
+    legend_x = x + width - 250
+    colors = ["#38bdf8", "#f97316", "#22c55e", "#ec4899", "#8b5cf6", "#06b6d4", "#facc15", "#cbd5e1"]
+    all_values: list[float] = []
+    normalized_map: list[tuple[dict[str, Any], list[float]]] = []
+    for item in items:
+        values = _normalized_points(item.get("series", []), 6)
+        if values:
+            normalized_map.append((item, values))
+            all_values.extend(values)
+    min_v = min(all_values + [96])
+    max_v = max(all_values + [104])
+    span = max(4.0, max_v - min_v)
+    min_v -= span * 0.12
+    max_v += span * 0.12
+    span = max_v - min_v
+
+    for index in range(5):
+        gy = plot_y + int(plot_h * index / 4)
+        label_value = max_v - span * index / 4
+        draw.line((plot_x, gy, plot_x + plot_w, gy), fill="#203044", width=1)
+        draw.text((plot_x - 48, gy - 12), f"{label_value:.0f}", fill="#cbd5e1", font=_load_font(16))
+    for index in range(6):
+        gx = plot_x + int(plot_w * index / 5)
+        draw.line((gx, plot_y, gx, plot_y + plot_h), fill="#162437", width=1)
+        label = "当日" if index == 5 else f"{5 - index}営業日前"
+        draw.text((gx - 44, plot_y + plot_h + 16), label, fill="#cbd5e1", font=_load_font(15, bold=True))
+
+    for index, (item, values) in enumerate(normalized_map):
+        color = colors[index % len(colors)]
+        points = []
+        for pos, value in enumerate(values):
+            px = plot_x + int(plot_w * pos / max(1, len(values) - 1))
+            py = plot_y + plot_h - int((value - min_v) / span * plot_h)
+            points.append((px, py))
+        if len(points) >= 2:
+            draw.line(points, fill=color, width=4, joint="curve")
+            for point in points:
+                draw.ellipse((point[0] - 5, point[1] - 5, point[0] + 5, point[1] + 5), fill=color)
+        legend_y = plot_y + index * 44
+        draw.line((legend_x, legend_y + 10, legend_x + 28, legend_y + 10), fill=color, width=5)
+        draw.text((legend_x + 42, legend_y - 4), str(item.get("label", "未確認"))[:13], fill="#e5e7eb", font=_load_font(18, bold=True))
+        change = item.get("change_pct")
+        change_text = "未確認" if change is None else f"{change:+.2f}%"
+        draw.text((legend_x + 42, legend_y + 20), change_text, fill="#cbd5e1", font=_load_font(15))
+
+
+def _draw_dark_bar_ranking(
+    draw: ImageDraw.ImageDraw,
+    visual_items: list[dict[str, Any]],
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> None:
+    _draw_panel(draw, (x, y, x + width, y + height), "前日比ランキング")
+    ranked = [
+        item
+        for item in visual_items
+        if isinstance(item.get("change_pct"), (int, float))
+    ]
+    ranked.sort(key=lambda item: float(item.get("change_pct", 0)), reverse=True)
+    if not ranked:
+        draw.text((x + 34, y + 92), "前日比データは未確認です。", fill="#cbd5e1", font=_load_font(22, bold=True))
+        return
+
+    plot_x = x + 300
+    plot_y = y + 86
+    plot_w = width - 390
+    center = plot_x + plot_w // 2
+    row_gap = 42
+    max_abs = max([abs(float(item.get("change_pct", 0))) for item in ranked[:8]] + [1.0])
+    draw.line((center, plot_y - 10, center, y + height - 44), fill="#64748b", width=2)
+    for tick in [-1.0, -0.5, 0, 0.5, 1.0]:
+        tx = center + int(tick * (plot_w // 2))
+        draw.line((tx, plot_y - 8, tx, y + height - 54), fill="#1f334a", width=1)
+    for index, item in enumerate(ranked[:8]):
+        row_y = plot_y + index * row_gap
+        label = str(item.get("label", "未確認"))[:14]
+        change = float(item.get("change_pct", 0))
+        color = "#4ade80" if change >= 0 else "#fb7185"
+        length = int(min(abs(change), max_abs) / max_abs * (plot_w // 2 - 8))
+        draw.text((x + 34, row_y - 8), label, fill="#e5e7eb", font=_load_font(18, bold=True))
+        if change >= 0:
+            draw.rounded_rectangle((center, row_y - 3, center + length, row_y + 20), radius=10, fill=color)
+        else:
+            draw.rounded_rectangle((center - length, row_y - 3, center, row_y + 20), radius=10, fill=color)
+        value = f"{change:+.2f}%"
+        value_x = center + length + 10 if change >= 0 else center - length - _text_width(draw, value, _load_font(17, bold=True)) - 10
+        draw.text((value_x, row_y - 8), value, fill="#f8fafc", font=_load_font(17, bold=True))
+    draw.text((center - 12, y + height - 42), "0%", fill="#cbd5e1", font=_load_font(16, bold=True))
+
+
+def _draw_dark_memo(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    palette: dict[str, str],
+) -> None:
+    _draw_panel(draw, (x, y, x + width, y + height), None, palette["accent"])
+    draw.text((x + 28, y + 22), "AI ひと言メモ", fill=palette["accent2"], font=_load_font(30, bold=True))
+    comments = summary.get("commentary", [])[:3]
+    if not comments:
+        comments = [summary.get("conclusion_text", "大きな偏りは未確認です。")]
+    text_y = y + 82
+    for comment in comments[:3]:
+        draw.text((x + 38, text_y), "•", fill="#f8fafc", font=_load_font(24, bold=True))
+        memo_font = _load_font(23, bold=True)
+        memo_line = _shorten_text(draw, comment, memo_font, width - 110, 1)[0]
+        draw.text((x + 70, text_y - 2), memo_line, fill="#f8fafc", font=memo_font)
+        text_y += 34
+        text_y += 6
+    evidence = summary.get("research_evidence_lines", [])
+    if evidence:
+        line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(16), width - 70, 1)[0]
+        draw.rounded_rectangle((x + 28, y + height - 54, x + width - 28, y + height - 18), radius=12, fill="#10243a", outline="#1e3a5f")
+        draw.text((x + 44, y + height - 47), line, fill="#bfdbfe", font=_load_font(16))
+
+
 def create_summary_card(
     task_id: str,
     task_config: dict[str, Any],
@@ -389,49 +626,24 @@ def create_summary_card(
 ) -> Path:
     width = int(rules.get("common", {}).get("card_width", 1080))
     height = int(rules.get("common", {}).get("card_height", 1920))
-    image = Image.new("RGBA", (width, height), "#fff8ec")
+    image = Image.new("RGBA", (width, height), "#030712")
     draw = ImageDraw.Draw(image)
-    _draw_background(draw, width, height)
+    _draw_dark_background(draw, width, height)
 
-    title_font = _load_font(42, bold=True)
-    subtitle_font = _load_font(24)
-    small_font = _load_font(20)
-    palette = _tone_palette(summary.get("market_tone", "neutral"))
-    elephant_path, otter_path = _character_paths(summary.get("market_tone", "neutral"))
+    palette = _dark_palette(summary.get("market_tone", "neutral"))
+    visual_items = summary.get("visual_items", [])
 
     margin = 34
-    draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=34, fill="#ffffff", outline="#e7cfa9", width=4)
-    draw.rounded_rectangle((margin + 14, margin + 14, width - margin - 14, 262), radius=28, fill=palette["pale"], outline="#ead7ba", width=2)
-    draw.text((66, 64), summary.get("theme_title", "今日の相場メモ"), fill=palette["accent_dark"], font=subtitle_font)
-    title = task_config.get("title", task_id)
-    _draw_wrapped(draw, (66, 106), title, title_font, "#3b2415", 650, 2)
-    draw.text((68, 220), f"配信日時: {summary['generated_at']}", fill="#64748b", font=small_font)
-    draw.rounded_rectangle((760, 72, 1018, 196), radius=24, fill="#ffffff", outline=palette["accent"], width=4)
-    draw.text((812, 98), palette["label"], fill=palette["accent"], font=_load_font(38, bold=True))
+    draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
+    _draw_dark_header(draw, summary, task_config, visual_items, palette, 52, 54, width - 104)
+    _draw_dark_line_chart(draw, summary, 52, 330, width - 104, 620)
+    _draw_dark_bar_ranking(draw, visual_items, 52, 974, width - 104, 430)
+    _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
 
-    _paste_character(image, elephant_path, (52, 270, 214, 430))
-    _paste_character(image, otter_path, (866, 270, 1026, 430))
-
-    _draw_signal_board(draw, summary, palette, 238, 286, 594)
-    _draw_quick_summary(draw, summary, palette, 56, 462, width - 112)
-
-    teacher_text = summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。")
-    student_text = ""
-    if summary.get("dialogue"):
-        student_text = summary["dialogue"][0].get("text", "")
-    speech_y = 712
-    _draw_speech(draw, 56, speech_y, 472, "ガネーシャ先生", teacher_text, palette, "teacher", max_lines=2)
-    if student_text:
-        _draw_speech(draw, 552, speech_y, 472, "カワウソくん", student_text, palette, "student", max_lines=2)
-
-    _draw_metric_tiles(draw, summary.get("metrics", []), palette, 56, 888, width - 112)
-    _draw_sparkline_panel(draw, summary, 56, 1160, width - 112, 300)
-    _draw_change_bars(draw, summary.get("visual_items", []), 56, 1490, width - 112, 220)
-    _draw_research_and_scenarios(draw, summary, palette, 56, 1730, width - 112)
-
-    footer_font = _load_font(14)
-    footer = "数値は取得できたデータのみ使用。取得不能な情報は未確認として扱います。"
-    draw.text((72, height - 42), footer, fill="#64748b", font=footer_font)
+    footer_font = _load_font(16)
+    footer = "数値は取得できたデータのみ使用。取得不能な情報は未確認。詳細はブラウザ版レポートへ。"
+    draw.text((72, height - 70), footer, fill="#94a3b8", font=footer_font)
+    draw.text((72, height - 44), f"生成時刻: {summary['generated_at']}", fill="#64748b", font=_load_font(14))
 
     path = output_dir / f"{task_id}_card.png"
     image.convert("RGB").save(path, quality=95)

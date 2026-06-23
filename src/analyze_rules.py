@@ -474,7 +474,7 @@ def _build_sparkline_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
                 "change_pct": item.get("change_pct"),
             }
         )
-        if len(sparkline_items) >= 4:
+        if len(sparkline_items) >= 8:
             break
     return sparkline_items
 
