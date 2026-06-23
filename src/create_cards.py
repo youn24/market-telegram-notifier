@@ -220,7 +220,7 @@ def _draw_quick_summary(
 ) -> None:
     draw.rounded_rectangle((x, y, x + width, y + 230), radius=26, fill="#ffffff", outline="#ead7ba", width=2)
     draw.text((x + 26, y + 22), "まず見る3点", fill="#7c4a22", font=_load_font(28, bold=True))
-    comments = summary.get("commentary", []) or []
+    comments = summary.get("ai_summary") or summary.get("deep_summary_lines") or summary.get("commentary", []) or []
     fallback = [
         summary.get("conclusion_text", "結論は未確認データを残しながら判断します。"),
         "数字は取得できたデータだけを使い、推測では作りません。",
@@ -458,6 +458,25 @@ def _normalized_points(series: list[dict[str, Any]], max_points: int = 6) -> lis
     return [(float(value) / float(values[0])) * 100 for value in values]
 
 
+def _draw_header_icon(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    palette: dict[str, str],
+    is_morning: bool,
+) -> None:
+    if is_morning:
+        cx, cy, radius = x + 22, y + 22, 13
+        draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=palette["accent2"])
+        for dx, dy in [(-28, 0), (28, 0), (0, -28), (0, 28), (-20, -20), (20, -20), (-20, 20), (20, 20)]:
+            draw.line((cx + dx * 0.62, cy + dy * 0.62, cx + dx, cy + dy), fill=palette["accent2"], width=4)
+        return
+
+    draw.ellipse((x + 2, y + 2, x + 46, y + 46), outline=palette["accent2"], width=5)
+    draw.line((x + 24, y + 24, x + 24, y + 10), fill=palette["accent2"], width=5)
+    draw.line((x + 24, y + 24, x + 36, y + 28), fill=palette["accent2"], width=5)
+
+
 def _draw_dark_header(
     draw: ImageDraw.ImageDraw,
     summary: dict[str, Any],
@@ -469,8 +488,7 @@ def _draw_dark_header(
     width: int,
 ) -> None:
     title = str(task_config.get("title", "相場チェック"))
-    icon = "☀" if "7:00" in title or "朝" in title else "◷"
-    draw.text((x + 24, y + 22), icon, fill=palette["accent2"], font=_load_font(38, bold=True))
+    _draw_header_icon(draw, x + 24, y + 24, palette, "7:00" in title or "朝" in title)
     _draw_wrapped(draw, (x + 82, y + 20), title, _load_font(36, bold=True), "#f8fafc", width - 180, 2)
     draw.text((x + 82, y + 112), "直近6営業日比較（初日=100）", fill="#cbd5e1", font=_load_font(24, bold=True))
     draw.rounded_rectangle((x + width - 280, y + 104, x + width - 28, y + 146), radius=18, fill="#10243a", outline="#1e3a5f")
@@ -599,7 +617,7 @@ def _draw_dark_memo(
 ) -> None:
     _draw_panel(draw, (x, y, x + width, y + height), None, palette["accent"])
     draw.text((x + 28, y + 22), "AI ひと言メモ", fill=palette["accent2"], font=_load_font(30, bold=True))
-    comments = summary.get("commentary", [])[:3]
+    comments = (summary.get("ai_summary") or summary.get("deep_summary_lines") or summary.get("commentary", []))[:3]
     if not comments:
         comments = [summary.get("conclusion_text", "大きな偏りは未確認です。")]
     text_y = y + 82

@@ -120,6 +120,25 @@ def display_title(task_config: dict[str, Any], task_id: str) -> str:
     return title
 
 
+def clip_message_text(text: str, max_chars: int = 80) -> str:
+    cleaned = " ".join(str(text).split())
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max_chars - 1].rstrip() + "…"
+
+
+def clean_analysis_lines(lines: list[str], limit: int = 5, max_chars: int = 80) -> list[str]:
+    cleaned: list[str] = []
+    for line in lines:
+        text = str(line).strip().strip("-・* ")
+        if not text:
+            continue
+        cleaned.append(clip_message_text(text, max_chars))
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
 def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
     raw_data["research"] = fetch_research_snapshot(context.task_id, context.task_config, context.sources)
@@ -128,7 +147,7 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
     openai_text = maybe_generate_openai_summary(summary)
     if openai_text:
         summary["body"] = openai_text
-        summary["ai_summary"] = [line.strip(" -・") for line in openai_text.splitlines() if line.strip()]
+        summary["ai_summary"] = clean_analysis_lines(openai_text.splitlines())
         summary["commentary"] = summary["ai_summary"][:3]
 
     output_dir = ensure_output_dir(context.task_id)
@@ -145,22 +164,30 @@ def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str,
         "bear": "結論: 警戒",
         "neutral": "結論: 様子見",
     }.get(summary.get("market_tone", "neutral"), "結論: 様子見")
-    teacher_line = summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。")
-    student_line = summary.get("dialogue", [{}])[0].get("text", "")
-
-    text = "\n".join(
-        [
-            f"【{title}】",
-            f"配信日時: {summary['generated_at']}",
-            headline,
-            "",
-            f"ガネーシャ先生: {teacher_line}",
-            "",
-            f"カワウソくん: {student_line}" if student_line else "",
-            "",
-            f"レポート: {link}" if link else "",
-        ]
+    teacher_line = clip_message_text(
+        summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。"),
+        90,
     )
+    student_line = clip_message_text(summary.get("dialogue", [{}])[0].get("text", ""), 70)
+    analysis_lines = clean_analysis_lines(summary.get("ai_summary") or summary.get("deep_summary_lines", []))
+    analysis_block = "\n".join(f"- {line}" for line in analysis_lines)
+
+    message_parts = [
+        f"【{title}】",
+        f"配信日時: {summary['generated_at']}",
+        headline,
+        "",
+        "AI分析",
+        analysis_block or f"- {teacher_line}",
+        "",
+        f"ガネーシャ先生: {teacher_line}",
+    ]
+    if student_line:
+        message_parts.extend(["", f"カワウソくん: {student_line}"])
+    if link:
+        message_parts.extend(["", f"レポート: {link}"])
+
+    text = "\n".join(message_parts)
 
     images = [path for path in [card_path, chart_path] if path is not None and path.exists()]
     return text, images, raw_data

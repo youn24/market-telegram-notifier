@@ -213,6 +213,46 @@ def _research_digest(raw_data: dict[str, Any]) -> str:
     return f"材料検索では{len(items)}件を確認。信頼度は{confidence_label}、最上位材料はscore {score}、主な出所は{'、'.join(source_names) or '未確認'}です。"
 
 
+def _clip_analysis_text(text: str, max_chars: int = 60) -> str:
+    cleaned = " ".join(str(text).split())
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max_chars - 1].rstrip() + "…"
+
+
+def _deep_summary_lines(
+    raw_data: dict[str, Any],
+    tone: str,
+    conclusion_text: str,
+    opportunities: list[str],
+    cautions: list[str],
+    research_confidence_line: str,
+    research_evidence_lines: list[str],
+) -> list[str]:
+    tone_label = {"bull": "強気寄り", "bear": "警戒", "neutral": "様子見"}.get(tone, "様子見")
+    evidence_line = research_evidence_lines[0] if research_evidence_lines else research_confidence_line
+    unknowns = []
+    for label, note in raw_data.get("highlights", {}).items():
+        if "未確認" in str(note):
+            unknowns.append(
+                {
+                    "speculative_positions": "投機筋",
+                    "earnings": "決算",
+                    "ratings": "信用評価",
+                    "supply_demand": "需給",
+                    "analysis": "分析",
+                }.get(label, label)
+            )
+    unknown_text = "、".join(unknowns[:3]) if unknowns else "不足カテゴリと未取得データ"
+    return [
+        f"結論: {_clip_analysis_text(f'{tone_label}。{conclusion_text}')}",
+        f"根拠: {_clip_analysis_text(evidence_line)}",
+        f"注視: {_clip_analysis_text(opportunities[0] if opportunities else '強い銘柄の継続性と出来高を確認します。')}",
+        f"回避: {_clip_analysis_text(cautions[0] if cautions else '根拠の薄い飛びつきと過度な枚数を避けます。')}",
+        f"未確認: {_clip_analysis_text(f'{unknown_text}は断定せず、取得済み数値を優先します。')}",
+    ]
+
+
 def _theme_block(task_id: str, task_config: dict[str, Any], tone: str, generated_at: str) -> tuple[str, str]:
     day_seed = int(generated_at[8:10])
     theme_map = {
@@ -673,6 +713,15 @@ def build_summary(
     conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)
     opportunities, cautions = _build_watchpoints(raw_data, thresholds)
     scenarios = _build_scenarios(raw_data, tone)
+    deep_summary_lines = _deep_summary_lines(
+        raw_data,
+        tone,
+        conclusion_text,
+        opportunities,
+        cautions,
+        research_confidence_line,
+        research_evidence_lines,
+    )
     key_metrics = macro_lines[:4] + market_lines[:4]
 
     return {
@@ -704,5 +753,6 @@ def build_summary(
         "research_coverage_lines": research_coverage_lines,
         "research_evidence_lines": research_evidence_lines,
         "research_evidence_packs": raw_data.get("research", {}).get("evidence_packs", []),
+        "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }
