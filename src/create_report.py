@@ -319,7 +319,7 @@ def _render_research_cards(summary: dict[str, Any]) -> str:
     if coverage_lines:
         coverage_items = "".join(f"<li>{_safe(line)}</li>" for line in coverage_lines[:6])
         cards.append(f'<ul class="research-coverage">{coverage_items}</ul>')
-    evidence_lines = summary.get("research_evidence_lines", [])
+    evidence_lines = summary.get("research_evidence_briefs") or summary.get("research_evidence_lines", [])
     if evidence_lines:
         evidence_items = "".join(f"<li>{_safe(line)}</li>" for line in evidence_lines[:6])
         cards.append(f'<ul class="research-evidence">{evidence_items}</ul>')

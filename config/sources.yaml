@@ -18,8 +18,9 @@ japan_market:
       ticker: "^N225"
       label: "日経225"
     TOPIX:
-      ticker: "^TOPX"
-      label: "TOPIX"
+      ticker: "1306.T"
+      label: "TOPIX近似(ETF)"
+      alternate_tickers: ["1308.T"]
     DOW:
       ticker: "^DJI"
       label: "NYダウ"

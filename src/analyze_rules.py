@@ -195,6 +195,29 @@ def _research_evidence_lines(raw_data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _research_evidence_briefs(raw_data: dict[str, Any]) -> list[str]:
+    packs = raw_data.get("research", {}).get("evidence_packs", [])
+    if not packs:
+        return ["根拠: 未確認"]
+
+    briefs: list[str] = []
+    for pack in packs[:5]:
+        category = str(pack.get("category", "未分類"))
+        status = str(pack.get("status", "missing"))
+        if status == "ok":
+            marker = "根拠あり"
+        elif status == "candidate":
+            marker = "候補のみ"
+        else:
+            marker = "不足"
+        adopted_count = pack.get("adopted_count", 0)
+        source_count = pack.get("source_count", 0)
+        fresh_count = pack.get("fresh_count", 0)
+        source = pack.get("top_source", "媒体未確認")
+        briefs.append(f"{category}: {marker} / 採用{adopted_count}件 / 媒体{source_count}種 / 24h内{fresh_count}件 / {source}")
+    return briefs
+
+
 def _research_digest(raw_data: dict[str, Any]) -> str:
     research = raw_data.get("research", {})
     items = research.get("items", [])
@@ -697,6 +720,7 @@ def build_summary(
     research_confidence_line = _research_confidence_line(raw_data)
     research_coverage_lines = _research_coverage_lines(raw_data)
     research_evidence_lines = _research_evidence_lines(raw_data)
+    research_evidence_briefs = _research_evidence_briefs(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -720,7 +744,7 @@ def build_summary(
         opportunities,
         cautions,
         research_confidence_line,
-        research_evidence_lines,
+        research_evidence_briefs,
     )
     key_metrics = macro_lines[:4] + market_lines[:4]
 
@@ -752,6 +776,7 @@ def build_summary(
         "research_confidence_line": research_confidence_line,
         "research_coverage_lines": research_coverage_lines,
         "research_evidence_lines": research_evidence_lines,
+        "research_evidence_briefs": research_evidence_briefs,
         "research_evidence_packs": raw_data.get("research", {}).get("evidence_packs", []),
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),

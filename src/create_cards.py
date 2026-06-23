@@ -628,7 +628,7 @@ def _draw_dark_memo(
         draw.text((x + 70, text_y - 2), memo_line, fill="#f8fafc", font=memo_font)
         text_y += 34
         text_y += 6
-    evidence = summary.get("research_evidence_lines", [])
+    evidence = summary.get("research_evidence_briefs") or summary.get("research_evidence_lines", [])
     if evidence:
         line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(16), width - 70, 1)[0]
         draw.rounded_rectangle((x + 28, y + height - 54, x + width - 28, y + height - 18), radius=12, fill="#10243a", outline="#1e3a5f")
