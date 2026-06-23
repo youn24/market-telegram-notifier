@@ -139,12 +139,27 @@ def clean_analysis_lines(lines: list[str], limit: int = 5, max_chars: int = 80) 
     return cleaned
 
 
-def build_notification(context: TaskContext) -> tuple[str, list[Path], dict[str, Any]]:
+def env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def should_use_ai_summary(dry_run: bool) -> bool:
+    if not env_flag("AI_SUMMARY_ENABLED", True):
+        return False
+    if dry_run and not env_flag("AI_SUMMARY_ON_DRY_RUN", False):
+        return False
+    return True
+
+
+def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
     raw_data["research"] = fetch_research_snapshot(context.task_id, context.task_config, context.sources)
     summary = build_summary(context.task_id, context.task_config, raw_data, context.rules)
 
-    openai_text = maybe_generate_openai_summary(summary)
+    openai_text = maybe_generate_openai_summary(summary) if use_ai else None
     if openai_text:
         summary["body"] = openai_text
         summary["ai_summary"] = clean_analysis_lines(openai_text.splitlines())
@@ -222,17 +237,21 @@ def main() -> int:
         logging.info(reason)
         return 0
 
-    message, images, _ = build_notification(context)
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not args.dry_run and (not bot_token or not chat_id):
+        logging.warning("Telegram 環境変数が未設定のため送信とAI要約をスキップしました")
+        return 0
+
+    use_ai = should_use_ai_summary(args.dry_run)
+    if not use_ai:
+        logging.info("AI要約は節約設定によりスキップしました")
+
+    message, images, _ = build_notification(context, use_ai=use_ai)
     logging.info("通知本文:\n%s", message)
 
     if args.dry_run:
         logging.info("dry-run のため Telegram 送信をスキップしました")
-        return 0
-
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-    if not bot_token or not chat_id:
-        logging.warning("Telegram 環境変数が未設定のため送信をスキップしました")
         return 0
 
     send_telegram_notification(bot_token=bot_token, chat_id=chat_id, text=message, image_paths=images)
