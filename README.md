@@ -74,9 +74,10 @@ GitHub リポジトリで次を設定してください。
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 
-OpenAI を後で使う場合だけ、必要になったタイミングで追加します。
+OpenAI / Gemini を後で使う場合だけ、必要になったタイミングで追加します。
 
 - `OPENAI_API_KEY` 任意
+- `GEMINI_API_KEY` 任意
 - `FRED_API_KEY` 任意
 
 ## 5. ローカルで試す
@@ -139,6 +140,13 @@ japan_midday:
 `src/openai_summary.py` を差し替えるか拡張すると、通知文の要約や補足コメントを OpenAI API に任せられます。
 
 現時点では未設定でも動くようにしてあり、API キーがない場合は自動で通常ルールベースにフォールバックします。
+
+Gemini / OpenAI を使う場合も、トークン消費を抑えるために通知用の重要材料だけを圧縮して送ります。
+
+- `AI_SUMMARY_MAX_INPUT_CHARS`: AIへ渡す入力文字数の上限です。初期値は `5200` です。
+- `AI_SUMMARY_MAX_OUTPUT_TOKENS`: AIの出力上限です。初期値は `360` です。
+- `AI_SUMMARY_TEMPERATURE`: 分析のブレを抑える設定です。初期値は `0.2` です。
+- `AI_SUMMARY_DETAIL`: `true` にすると詳細根拠も多めに渡します。通常は `false` 推奨です。
 
 ## 10. ニュース検索・材料確認
 

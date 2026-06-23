@@ -6,12 +6,53 @@ from typing import Any
 import requests
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _as_lines(values: Any, limit: int, max_chars: int = 120) -> list[str]:
+    if not values:
+        return []
+    if not isinstance(values, list):
+        values = [values]
+
+    lines: list[str] = []
+    for value in values:
+        text = " ".join(str(value).split())
+        if not text:
+            continue
+        if len(text) > max_chars:
+            text = text[: max_chars - 1].rstrip() + "…"
+        lines.append(text)
+        if len(lines) >= limit:
+            break
+    return lines
+
+
+def _trim_prompt(prompt: str) -> str:
+    max_chars = _env_int("AI_SUMMARY_MAX_INPUT_CHARS", 5200)
+    if len(prompt) <= max_chars:
+        return prompt
+    return prompt[: max_chars - 80].rstrip() + "\n[入力節約のためここで省略]"
+
+
 def _build_prompt(summary: dict[str, Any]) -> str:
-    return "\n".join(
+    include_detail = os.getenv("AI_SUMMARY_DETAIL", "").strip().lower() in {"1", "true", "yes"}
+    prompt = "\n".join(
         [
             "You are a Japanese financial market assistant for a day trader.",
             "Return the answer in natural Japanese only.",
-            "Think carefully using all provided market, macro, scenario, and research evidence.",
+            "Use only the compact evidence below. Do not invent numbers.",
             "Do not reveal chain-of-thought. Output only the final concise analysis.",
             "Write exactly five short labeled lines.",
             "Line 1 must start with 結論:",
@@ -25,31 +66,35 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             "Prioritize evidence marked 根拠あり. Treat 候補のみ and 不足 cautiously.",
             "",
             f"Conclusion label: {summary.get('conclusion_label', '')}",
-            f"Conclusion text: {summary.get('conclusion_text', '')}",
-            "Rule-based commentary:",
-            *summary.get("commentary", []),
+            f"Conclusion text: {' '.join(str(summary.get('conclusion_text', '')).split())[:160]}",
+            "Rule summary:",
+            *_as_lines(summary.get("commentary", []), 2, 100),
             "Macro metrics:",
-            *summary.get("macro_metrics", []),
+            *_as_lines(summary.get("macro_metrics", []), 4, 90),
             "Market metrics:",
-            *summary.get("market_metrics", summary.get("metrics", [])),
+            *_as_lines(summary.get("market_metrics", summary.get("metrics", [])), 5, 90),
             "Signals:",
-            *summary.get("signals", []),
+            *_as_lines(summary.get("signals", []), 3, 90),
             "Scenarios:",
-            *summary.get("scenarios", []),
-            "Research headlines from free search/RSS. Treat these as context, not verified numeric data:",
-            summary.get("research_confidence_line", ""),
-            "Research coverage and missing viewpoints:",
-            *summary.get("research_coverage_lines", []),
-            "Compact research evidence by category. Use these first for judgment:",
-            *summary.get("research_evidence_briefs", []),
-            "Detailed research evidence by category. Use ok evidence strongly, mention candidate/missing viewpoints cautiously:",
-            *summary.get("research_evidence_lines", []),
+            *_as_lines(summary.get("scenarios", []), 3, 100),
+            "Research confidence:",
+            *_as_lines(summary.get("research_confidence_line", ""), 1, 120),
+            "Research coverage:",
+            *_as_lines(summary.get("research_coverage_lines", []), 4, 90),
+            "Compact research evidence:",
+            *_as_lines(summary.get("research_evidence_briefs", []), 5, 110),
             "Research themes:",
-            *summary.get("research_theme_lines", []),
-            "Ranked research headlines:",
-            *summary.get("research_lines", []),
+            *_as_lines(summary.get("research_theme_lines", []), 3, 90),
+            "Top headlines, context only:",
+            *_as_lines(summary.get("research_lines", []), 2 if not include_detail else 5, 120),
+            *(
+                ["Detailed evidence:", *_as_lines(summary.get("research_evidence_lines", []), 4, 140)]
+                if include_detail
+                else []
+            ),
         ]
     )
+    return _trim_prompt(prompt)
 
 
 def _maybe_generate_gemini_summary(summary: dict[str, Any]) -> str | None:
@@ -65,7 +110,13 @@ def _maybe_generate_gemini_summary(summary: dict[str, Any]) -> str | None:
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             params={"key": api_key},
             headers={"Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": prompt}]}]},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": _env_float("AI_SUMMARY_TEMPERATURE", 0.2),
+                    "maxOutputTokens": _env_int("AI_SUMMARY_MAX_OUTPUT_TOKENS", 360),
+                },
+            },
             timeout=60,
         )
         response.raise_for_status()
@@ -96,7 +147,12 @@ def _maybe_generate_openai_summary(summary: dict[str, Any]) -> str | None:
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            json={"model": model, "input": prompt},
+            json={
+                "model": model,
+                "input": prompt,
+                "temperature": _env_float("AI_SUMMARY_TEMPERATURE", 0.2),
+                "max_output_tokens": _env_int("AI_SUMMARY_MAX_OUTPUT_TOKENS", 360),
+            },
             timeout=60,
         )
         response.raise_for_status()
