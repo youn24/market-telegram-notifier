@@ -8,9 +8,44 @@ from typing import Any
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 from matplotlib import font_manager
+
+STOCK_KEYS = {
+    "NIKKEI225",
+    "TOPIX",
+    "DOW",
+    "SP500",
+    "NASDAQ",
+    "RUSSELL2000",
+    "FTSE100",
+    "DAX",
+    "CAC40",
+    "HANGSENG",
+    "SHANGHAI",
+    "KOSPI",
+}
+FX_COMMODITY_KEYS = {"USDJPY", "EURJPY", "EURUSD", "DXY", "DOLLAR_BROAD", "GOLD", "WTI"}
+RISK_RATE_KEYS = {"US10Y", "SOFR", "VIX", "YIELD_2S10S"}
+PREFERRED_KEYS = [
+    "NIKKEI225",
+    "TOPIX",
+    "DOW",
+    "SP500",
+    "NASDAQ",
+    "RUSSELL2000",
+    "USDJPY",
+    "EURUSD",
+    "GOLD",
+    "WTI",
+    "US10Y",
+    "SOFR",
+    "VIX",
+    "YIELD_2S10S",
+    "DOLLAR_BROAD",
+]
+COLORS = ["#38bdf8", "#f97316", "#22c55e", "#ec4899", "#8b5cf6", "#06b6d4", "#facc15", "#cbd5e1"]
 
 
 def _parse_date(value: Any) -> date | None:
@@ -46,7 +81,10 @@ def _prepare_chart_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
         points = _chart_points(item)
         if len(points) >= 2:
             prepared.append({"item": item, "points": points})
-    return prepared
+    by_key = {entry["item"].get("key"): entry for entry in prepared}
+    ordered = [by_key[key] for key in PREFERRED_KEYS if key in by_key]
+    ordered.extend(entry for entry in prepared if entry not in ordered)
+    return ordered
 
 
 def _numeric_change(item: dict[str, Any]) -> float | None:
@@ -56,25 +94,43 @@ def _numeric_change(item: dict[str, Any]) -> float | None:
     return None
 
 
-def create_market_chart(
-    task_id: str,
-    task_config: dict[str, Any],
-    raw_data: dict[str, Any],
-    rules: dict[str, Any],
-    output_dir: Path,
-) -> Path | None:
-    available_items = _prepare_chart_items(raw_data)
-    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "DOLLAR_BROAD"]
-    by_key = {entry["item"].get("key"): entry for entry in available_items}
-    chart_items = [by_key[key] for key in preferred_keys if key in by_key]
-    chart_items.extend(item for item in available_items if item not in chart_items)
-    chart_items = chart_items[:8]
-    if not chart_items:
-        return None
+def _split_groups(chart_items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    groups = {"stocks": [], "fx_commodity": [], "risk_rate": [], "other": []}
+    for entry in chart_items:
+        key = str(entry["item"].get("key", ""))
+        if key in STOCK_KEYS:
+            groups["stocks"].append(entry)
+        elif key in FX_COMMODITY_KEYS:
+            groups["fx_commodity"].append(entry)
+        elif key in RISK_RATE_KEYS:
+            groups["risk_rate"].append(entry)
+        else:
+            groups["other"].append(entry)
+    return groups
 
-    width = rules.get("common", {}).get("chart_width", 1280) / 100
-    height = rules.get("common", {}).get("chart_height", 720) / 100
 
+def _normalize(points: list[tuple[date, float]]) -> tuple[list[date], list[float]]:
+    raw_values = [value for _, value in points]
+    base_value = raw_values[0] if raw_values and raw_values[0] else 1
+    return [point_date for point_date, _ in points], [(value / base_value) * 100 for value in raw_values]
+
+
+def _format_value(item: dict[str, Any]) -> str:
+    current = item.get("current")
+    unit = item.get("unit", "")
+    if current is None:
+        return "未確認"
+    return f"{current:,.2f}{unit}"
+
+
+def _format_change(value: float | None) -> str:
+    if value is None:
+        return "未確認"
+    prefix = "+" if value > 0 else ""
+    return f"{prefix}{value:.2f}%"
+
+
+def _setup_fonts() -> None:
     for font_path in [
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
@@ -87,79 +143,128 @@ def create_market_chart(
             continue
     plt.rcParams["font.family"] = ["Noto Sans CJK JP", "Meiryo", "Yu Gothic", "DejaVu Sans"]
 
-    fig, axes = plt.subplots(2, 1, figsize=(width, height), dpi=100, gridspec_kw={"height_ratios": [2.15, 1]})
-    fig.patch.set_facecolor("#07111e")
-    ax = axes[0]
-    bar_ax = axes[1]
+
+def _style_axis(ax: Any) -> None:
     ax.set_facecolor("#0b1624")
-    bar_ax.set_facecolor("#0b1624")
-
-    colors = ["#38bdf8", "#f97316", "#22c55e", "#ec4899", "#8b5cf6", "#06b6d4", "#facc15", "#cbd5e1"]
-
-    for index, entry in enumerate(chart_items):
-        item = entry["item"]
-        points = entry["points"]
-        x_values = [point_date for point_date, _ in points]
-        raw_values = [value for _, value in points]
-        base_value = raw_values[0] if raw_values and raw_values[0] else 1
-        y_values = [(value / base_value) * 100 for value in raw_values]
-        ax.plot(x_values, y_values, marker="o", markersize=7, linewidth=3.8, label=item["label"], color=colors[index % len(colors)])
-
-    ax.set_title(f"{task_config.get('title', task_id)} 日足比較（初日=100）", color="#f8fafc", fontsize=25, fontweight="bold", pad=20)
-    ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=7))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
-    ax.tick_params(axis="x", colors="#cbd5e1", rotation=0, labelsize=15)
-    ax.tick_params(axis="y", colors="#cbd5e1", labelsize=16)
+    ax.tick_params(axis="x", colors="#cbd5e1", labelsize=13)
+    ax.tick_params(axis="y", colors="#cbd5e1", labelsize=13)
     for spine in ax.spines.values():
         spine.set_color("#334155")
     ax.grid(True, alpha=0.42, color="#203044", linewidth=1.1)
-    ax.legend(facecolor="#10243a", edgecolor="#334155", labelcolor="#f8fafc", fontsize=13, loc="upper left", framealpha=0.94)
 
-    ranked_items = [
-        entry["item"]
-        for entry in chart_items
-        if _numeric_change(entry["item"]) is not None
-    ]
+
+def _set_date_axis(ax: Any) -> None:
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=7))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
+
+
+def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lines: int = 7) -> None:
+    _style_axis(ax)
+    ax.set_title(title, color="#f8fafc", fontsize=18, fontweight="bold", pad=12, loc="left")
+    if not entries:
+        ax.text(0.5, 0.5, "取得できたデータがありません", color="#94a3b8", ha="center", va="center", transform=ax.transAxes)
+        return
+
+    plotted = entries[:max_lines]
+    min_value = 100.0
+    max_value = 100.0
+    for index, entry in enumerate(plotted):
+        item = entry["item"]
+        x_values, y_values = _normalize(entry["points"])
+        if not y_values:
+            continue
+        min_value = min(min_value, min(y_values))
+        max_value = max(max_value, max(y_values))
+        color = COLORS[index % len(COLORS)]
+        label = f"{item.get('label', item.get('key', '未確認'))} {_format_change(_numeric_change(item))}"
+        ax.plot(x_values, y_values, marker="o", markersize=5.5, linewidth=2.8, label=label, color=color)
+        ax.text(x_values[-1], y_values[-1], f" {_format_value(item)}", color=color, fontsize=9, va="center", fontweight="bold")
+
+    span = max(max_value - min_value, 1.0)
+    ax.set_ylim(min_value - span * 0.18, max_value + span * 0.22)
+    ax.axhline(100, color="#64748b", linewidth=1.2, alpha=0.9)
+    _set_date_axis(ax)
+    ax.legend(facecolor="#10243a", edgecolor="#334155", labelcolor="#f8fafc", fontsize=10, loc="best", framealpha=0.94)
+
+
+def _draw_bar_panel(ax: Any, entries: list[dict[str, Any]]) -> None:
+    _style_axis(ax)
+    ranked_items = [entry["item"] for entry in entries if _numeric_change(entry["item"]) is not None]
     ranked_items.sort(key=lambda item: _numeric_change(item) or 0, reverse=True)
-    labels = [item["label"] for item in ranked_items]
+    ranked_items = ranked_items[:10]
+    ax.set_title("前日比ランキング（取得値のみ）", color="#f8fafc", fontsize=18, fontweight="bold", pad=12, loc="left")
+    if not ranked_items:
+        ax.text(0.5, 0.5, "前日比は未確認です", color="#94a3b8", ha="center", va="center", transform=ax.transAxes)
+        return
+
+    labels = [item.get("label", item.get("key", "未確認")) for item in ranked_items]
     changes = [_numeric_change(item) or 0 for item in ranked_items]
     bar_colors = ["#22c55e" if value >= 0 else "#ef4444" for value in changes]
     positions = list(range(len(labels)))
-    bar_ax.barh(positions, changes, color=bar_colors, alpha=0.92, height=0.56)
-    bar_ax.set_yticks(positions, labels=labels)
-    bar_ax.invert_yaxis()
-    bar_ax.tick_params(axis="y", colors="#e5e7eb", labelsize=15)
-    bar_ax.tick_params(axis="x", colors="#cbd5e1", labelsize=14)
-    bar_ax.axvline(0, color="#94a3b8", linewidth=1.4)
+    ax.barh(positions, changes, color=bar_colors, alpha=0.92, height=0.58)
+    ax.set_yticks(positions, labels=labels)
+    ax.invert_yaxis()
+    ax.axvline(0, color="#94a3b8", linewidth=1.4)
     max_abs = max([abs(value) for value in changes] + [1.0])
-    bar_ax.set_xlim(-max_abs * 1.22, max_abs * 1.22)
-    bar_ax.set_title("前日比ランキング", color="#f8fafc", fontsize=21, fontweight="bold", pad=16)
-    for spine in bar_ax.spines.values():
-        spine.set_color("#334155")
-    bar_ax.grid(True, axis="x", alpha=0.38, color="#203044", linewidth=1.1)
+    ax.set_xlim(-max_abs * 1.24, max_abs * 1.24)
     for index, value in enumerate(changes):
-        prefix = "+" if value > 0 else ""
-        bar_ax.text(
-            value + (0.05 if value >= 0 else -0.05),
+        ax.text(
+            value + (max_abs * 0.025 if value >= 0 else -max_abs * 0.025),
             index,
-            f"{prefix}{value:.2f}%",
+            _format_change(value),
             color="#f8fafc",
             va="center",
             ha="left" if value >= 0 else "right",
-            fontsize=14,
+            fontsize=11,
             fontweight="bold",
         )
+
+
+def create_market_chart(
+    task_id: str,
+    task_config: dict[str, Any],
+    raw_data: dict[str, Any],
+    rules: dict[str, Any],
+    output_dir: Path,
+) -> Path | None:
+    chart_items = _prepare_chart_items(raw_data)
+    if not chart_items:
+        return None
+
+    _setup_fonts()
+    width = rules.get("common", {}).get("chart_width", 1280) / 100
+    height = max(rules.get("common", {}).get("chart_height", 720) / 100, 11.2)
+    fig, axes = plt.subplots(
+        4,
+        1,
+        figsize=(width, height),
+        dpi=100,
+        gridspec_kw={"height_ratios": [1.45, 1.25, 1.15, 1.35]},
+    )
+    fig.patch.set_facecolor("#07111e")
+
+    groups = _split_groups(chart_items)
+    stock_entries = groups["stocks"] or chart_items[:7]
+    fx_entries = groups["fx_commodity"] + groups["other"]
+    risk_entries = groups["risk_rate"]
+
+    title = task_config.get("title", task_id)
+    fig.suptitle(f"{title} 直近6取得日ダッシュボード", color="#f8fafc", fontsize=24, fontweight="bold", y=0.995)
+    _draw_line_panel(axes[0], "1. 株価指数: 同じ種類だけで比較（初日=100）", stock_entries, max_lines=7)
+    _draw_line_panel(axes[1], "2. 為替・商品: 外部環境の方向（初日=100）", fx_entries, max_lines=6)
+    _draw_line_panel(axes[2], "3. 金利・VIX: リスク温度計（初日=100）", risk_entries, max_lines=5)
+    _draw_bar_panel(axes[3], chart_items)
 
     path = output_dir / f"{task_id}_chart.png"
     output_dir.mkdir(parents=True, exist_ok=True)
     fig.text(
         0.012,
-        0.012,
-        "横軸は実日付順。休場日・未取得日は飛ばさず、取得できた日足だけを描画。",
+        0.01,
+        "データは取得できた終値のみ使用。未取得日は補完せず、種類の違う指標は別パネルで表示。",
         color="#94a3b8",
         fontsize=11,
     )
-    fig.tight_layout(rect=(0, 0.035, 1, 1))
+    fig.tight_layout(rect=(0, 0.025, 1, 0.975), h_pad=1.2)
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
     return path

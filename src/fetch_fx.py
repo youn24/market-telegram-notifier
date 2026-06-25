@@ -20,7 +20,7 @@ def _series_from_history(history: pd.DataFrame) -> list[dict[str, Any]]:
         return series
 
     closes = history["Close"].dropna()
-    for index, value in closes.tail(5).items():
+    for index, value in closes.tail(6).items():
         series.append({"date": str(index.date()), "value": float(value)})
     return series
 
@@ -29,7 +29,7 @@ def _fetch_symbol(symbol_key: str, ticker: str, label: str) -> dict[str, Any]:
     try:
         history = yf.download(
             ticker,
-            period="7d",
+            period="10d",
             interval="1d",
             auto_adjust=False,
             progress=False,

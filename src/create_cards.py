@@ -508,8 +508,11 @@ def _draw_dark_line_chart(
     width: int,
     height: int,
 ) -> None:
-    _draw_panel(draw, (x, y, x + width, y + height), "直近6営業日の推移（初日=100）")
-    items = summary.get("sparkline_items", [])[:8]
+    _draw_panel(draw, (x, y, x + width, y + height), "直近6取得日の価格推移（初日=100）")
+    risk_keys = {"US10Y", "SOFR", "VIX", "YIELD_2S10S"}
+    all_items = summary.get("sparkline_items", []) or []
+    price_items = [item for item in all_items if str(item.get("key", "")) not in risk_keys]
+    items = (price_items or all_items)[:6]
     plot_x = x + 64
     plot_y = y + 94
     plot_w = width - 350

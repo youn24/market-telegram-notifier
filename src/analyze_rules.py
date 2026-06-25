@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -505,6 +505,7 @@ def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
         unit = item.get("unit", "")
         visual_items.append(
             {
+                "key": item.get("key", ""),
                 "label": item.get("label", "未確認"),
                 "value": "未確認" if current is None else f"{current:,.2f}{unit}",
                 "change_pct": item.get("change_pct"),
@@ -523,17 +524,14 @@ def _build_sparkline_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
 
     sparkline_items: list[dict[str, Any]] = []
     for item in ordered_items:
-        series = [
-            {"date": point.get("date"), "value": point.get("value")}
-            for point in item.get("series", [])
-            if point.get("value") is not None
-        ]
+        series = _sorted_series(item.get("series", []), limit=6)
         if len(series) < 2:
             continue
         sparkline_items.append(
             {
+                "key": item.get("key", ""),
                 "label": item.get("label", "未確認"),
-                "series": series[-7:],
+                "series": series,
                 "change_pct": item.get("change_pct"),
             }
         )
@@ -547,6 +545,36 @@ def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
         if item.get("key") == key:
             return item
     return None
+
+
+def _parse_series_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value)[:10]).date()
+    except ValueError:
+        return None
+
+
+def _sorted_series(series: list[dict[str, Any]], limit: int = 6) -> list[dict[str, Any]]:
+    points_by_date: dict[date, float] = {}
+    for point in series:
+        point_date = _parse_series_date(point.get("date"))
+        value = point.get("value")
+        if point_date is None or value is None:
+            continue
+        try:
+            points_by_date[point_date] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return [
+        {"date": point_date.isoformat(), "value": value}
+        for point_date, value in sorted(points_by_date.items(), key=lambda pair: pair[0])[-limit:]
+    ]
 
 
 def _macro_read(raw_data: dict[str, Any]) -> list[str]:

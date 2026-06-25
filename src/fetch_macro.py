@@ -43,7 +43,7 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
                     "api_key": fred_api_key,
                     "file_type": "json",
                     "sort_order": "desc",
-                    "limit": 7,
+                    "limit": 10,
                 },
                 timeout=30,
             )
@@ -66,7 +66,7 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
 
             current = usable[0]["value"]
             previous = usable[1]["value"]
-            series = list(reversed(usable[:5]))
+            series = list(reversed(usable[:6]))
             items.append(
                 {
                     "key": series_key,
