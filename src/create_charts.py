@@ -45,7 +45,7 @@ PREFERRED_KEYS = [
     "YIELD_2S10S",
     "DOLLAR_BROAD",
 ]
-COLORS = ["#38bdf8", "#f97316", "#22c55e", "#ec4899", "#8b5cf6", "#06b6d4", "#facc15", "#cbd5e1"]
+COLORS = ["#38bdf8", "#f97316", "#22c55e", "#f472b6", "#a78bfa", "#06b6d4", "#facc15", "#cbd5e1"]
 
 
 def _parse_date(value: Any) -> date | None:
@@ -146,11 +146,12 @@ def _setup_fonts() -> None:
 
 def _style_axis(ax: Any) -> None:
     ax.set_facecolor("#0b1624")
-    ax.tick_params(axis="x", colors="#cbd5e1", labelsize=13)
-    ax.tick_params(axis="y", colors="#cbd5e1", labelsize=13)
+    ax.tick_params(axis="x", colors="#dbeafe", labelsize=14, pad=8)
+    ax.tick_params(axis="y", colors="#dbeafe", labelsize=14, pad=8)
     for spine in ax.spines.values():
-        spine.set_color("#334155")
-    ax.grid(True, alpha=0.42, color="#203044", linewidth=1.1)
+        spine.set_color("#3b82f6")
+        spine.set_alpha(0.35)
+    ax.grid(True, alpha=0.46, color="#21344f", linewidth=1.1)
 
 
 def _set_date_axis(ax: Any) -> None:
@@ -160,9 +161,9 @@ def _set_date_axis(ax: Any) -> None:
 
 def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lines: int = 7) -> None:
     _style_axis(ax)
-    ax.set_title(title, color="#f8fafc", fontsize=18, fontweight="bold", pad=12, loc="left")
+    ax.set_title(title, color="#f8fafc", fontsize=21, fontweight="bold", pad=14, loc="left")
     if not entries:
-        ax.text(0.5, 0.5, "取得できたデータがありません", color="#94a3b8", ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "取得できたデータがありません", color="#bfdbfe", ha="center", va="center", transform=ax.transAxes, fontsize=16)
         return
 
     plotted = entries[:max_lines]
@@ -177,14 +178,26 @@ def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lin
         max_value = max(max_value, max(y_values))
         color = COLORS[index % len(COLORS)]
         label = f"{item.get('label', item.get('key', '未確認'))} {_format_change(_numeric_change(item))}"
-        ax.plot(x_values, y_values, marker="o", markersize=5.5, linewidth=2.8, label=label, color=color)
-        ax.text(x_values[-1], y_values[-1], f" {_format_value(item)}", color=color, fontsize=9, va="center", fontweight="bold")
+        ax.plot(x_values, y_values, marker="o", markersize=6.5, linewidth=3.2, label=label, color=color)
 
     span = max(max_value - min_value, 1.0)
-    ax.set_ylim(min_value - span * 0.18, max_value + span * 0.22)
-    ax.axhline(100, color="#64748b", linewidth=1.2, alpha=0.9)
+    ax.set_ylim(min_value - span * 0.22, max_value + span * 0.24)
+    ax.axhline(100, color="#93c5fd", linewidth=1.4, alpha=0.9)
     _set_date_axis(ax)
-    ax.legend(facecolor="#10243a", edgecolor="#334155", labelcolor="#f8fafc", fontsize=10, loc="best", framealpha=0.94)
+    legend_columns = 2 if len(plotted) <= 4 else 3
+    ax.legend(
+        facecolor="#10243a",
+        edgecolor="#3b82f6",
+        labelcolor="#f8fafc",
+        fontsize=12,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.18),
+        ncol=legend_columns,
+        framealpha=0.96,
+        borderpad=0.65,
+        columnspacing=1.15,
+        handlelength=2.1,
+    )
 
 
 def _draw_bar_panel(ax: Any, entries: list[dict[str, Any]]) -> None:
@@ -192,9 +205,9 @@ def _draw_bar_panel(ax: Any, entries: list[dict[str, Any]]) -> None:
     ranked_items = [entry["item"] for entry in entries if _numeric_change(entry["item"]) is not None]
     ranked_items.sort(key=lambda item: _numeric_change(item) or 0, reverse=True)
     ranked_items = ranked_items[:10]
-    ax.set_title("前日比ランキング（取得値のみ）", color="#f8fafc", fontsize=18, fontweight="bold", pad=12, loc="left")
+    ax.set_title("4. 前日比ランキング（取得値のみ）", color="#f8fafc", fontsize=21, fontweight="bold", pad=14, loc="left")
     if not ranked_items:
-        ax.text(0.5, 0.5, "前日比は未確認です", color="#94a3b8", ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "前日比は未確認です", color="#bfdbfe", ha="center", va="center", transform=ax.transAxes, fontsize=16)
         return
 
     labels = [item.get("label", item.get("key", "未確認")) for item in ranked_items]
@@ -204,7 +217,7 @@ def _draw_bar_panel(ax: Any, entries: list[dict[str, Any]]) -> None:
     ax.barh(positions, changes, color=bar_colors, alpha=0.92, height=0.58)
     ax.set_yticks(positions, labels=labels)
     ax.invert_yaxis()
-    ax.axvline(0, color="#94a3b8", linewidth=1.4)
+    ax.axvline(0, color="#dbeafe", linewidth=1.4)
     max_abs = max([abs(value) for value in changes] + [1.0])
     ax.set_xlim(-max_abs * 1.24, max_abs * 1.24)
     for index, value in enumerate(changes):
@@ -215,7 +228,7 @@ def _draw_bar_panel(ax: Any, entries: list[dict[str, Any]]) -> None:
             color="#f8fafc",
             va="center",
             ha="left" if value >= 0 else "right",
-            fontsize=11,
+            fontsize=13,
             fontweight="bold",
         )
 
@@ -233,13 +246,13 @@ def create_market_chart(
 
     _setup_fonts()
     width = rules.get("common", {}).get("chart_width", 1280) / 100
-    height = max(rules.get("common", {}).get("chart_height", 720) / 100, 11.2)
+    height = max(rules.get("common", {}).get("chart_height", 720) / 100, 16.2)
     fig, axes = plt.subplots(
         4,
         1,
         figsize=(width, height),
         dpi=100,
-        gridspec_kw={"height_ratios": [1.45, 1.25, 1.15, 1.35]},
+        gridspec_kw={"height_ratios": [1.55, 1.35, 1.25, 1.45]},
     )
     fig.patch.set_facecolor("#07111e")
 
@@ -249,22 +262,22 @@ def create_market_chart(
     risk_entries = groups["risk_rate"]
 
     title = task_config.get("title", task_id)
-    fig.suptitle(f"{title} 直近6取得日ダッシュボード", color="#f8fafc", fontsize=24, fontweight="bold", y=0.995)
-    _draw_line_panel(axes[0], "1. 株価指数: 同じ種類だけで比較（初日=100）", stock_entries, max_lines=7)
-    _draw_line_panel(axes[1], "2. 為替・商品: 外部環境の方向（初日=100）", fx_entries, max_lines=6)
-    _draw_line_panel(axes[2], "3. 金利・VIX: リスク温度計（初日=100）", risk_entries, max_lines=5)
+    fig.suptitle(f"{title}\n直近6取得日ダッシュボード", color="#f8fafc", fontsize=26, fontweight="bold", y=0.997)
+    _draw_line_panel(axes[0], "1. 株価指数: 同じ種類だけで比較（初日=100）", stock_entries, max_lines=6)
+    _draw_line_panel(axes[1], "2. 為替・商品: 外部環境の方向（初日=100）", fx_entries, max_lines=5)
+    _draw_line_panel(axes[2], "3. 金利・VIX: リスク温度計（初日=100）", risk_entries, max_lines=4)
     _draw_bar_panel(axes[3], chart_items)
 
     path = output_dir / f"{task_id}_chart.png"
     output_dir.mkdir(parents=True, exist_ok=True)
     fig.text(
         0.012,
-        0.01,
+        0.008,
         "データは取得できた終値のみ使用。未取得日は補完せず、種類の違う指標は別パネルで表示。",
         color="#94a3b8",
-        fontsize=11,
+        fontsize=12,
     )
-    fig.tight_layout(rect=(0, 0.025, 1, 0.975), h_pad=1.2)
+    fig.tight_layout(rect=(0, 0.026, 1, 0.956), h_pad=4.1)
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
     return path

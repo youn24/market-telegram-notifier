@@ -422,44 +422,51 @@ def create_market_report(
   <title>{_safe(task_config.get("title", task_id))}</title>
   <style>
     :root {{
-      --bg: #f3f4f6;
+      --bg: #eef3f8;
       --panel: #ffffff;
-      --line: #e5e7eb;
+      --line: #dbe3ee;
       --text: #111827;
-      --sub: #6b7280;
+      --sub: #475569;
       --accent: {market_color};
       --good: #166534;
       --bad: #991b1b;
+      --soft-blue: #eef7ff;
+      --soft-gold: #fff7df;
+      --soft-green: #effaf3;
+      --soft-red: #fff1f2;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
       font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
       background:
-        radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 32%),
-        linear-gradient(180deg, #ffffff 0%, var(--bg) 260px);
+        radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 340px);
       color: var(--text);
+      font-size: 17px;
     }}
     .page {{
-      max-width: 760px;
+      max-width: 1040px;
       margin: 0 auto;
-      padding: 12px 10px 40px;
+      padding: 18px 14px 48px;
     }}
     .hero, .panel {{
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 12px;
-      box-shadow: none;
-      margin-bottom: 8px;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 14px 34px rgba(15, 23, 42, .08);
+      margin-bottom: 16px;
       animation: fadeUp .48s ease both;
     }}
     .hero {{
       position: relative;
       overflow: hidden;
       color: var(--text);
-      background: {hero_background};
-      border-left: 6px solid var(--accent);
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, white), #ffffff 54%),
+        {hero_background};
+      border-left: 10px solid var(--accent);
     }}
     .hero > * {{
       position: relative;
@@ -467,15 +474,15 @@ def create_market_report(
     }}
     .hero-layout {{
       display: grid;
-      grid-template-columns: 1fr 172px;
-      gap: 12px;
+      grid-template-columns: 1fr 210px;
+      gap: 18px;
       align-items: center;
     }}
     .hero-visual {{
       position: relative;
-      min-height: 168px;
+      min-height: 190px;
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 18px;
       background:
         radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--accent) 16%, white), transparent 42%),
         #f8fafc;
@@ -544,56 +551,61 @@ def create_market_report(
       animation-delay: 1.6s;
     }}
     .eyebrow {{
-      font-size: 12px;
+      font-size: 14px;
       color: var(--sub);
       margin-bottom: 6px;
-      font-weight: 800;
+      font-weight: 900;
+      letter-spacing: .04em;
     }}
     h1 {{
-      font-size: 26px;
+      font-size: clamp(28px, 4vw, 42px);
       line-height: 1.25;
-      margin: 0 0 8px;
+      margin: 0 0 12px;
     }}
     .theme {{
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--sub);
-      margin-bottom: 10px;
+      font-size: 17px;
+      line-height: 1.75;
+      color: #334155;
+      margin-bottom: 14px;
+      background: #ffffffcc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
     }}
     .badge {{
       display: inline-block;
-      background: #ffffff;
+      background: color-mix(in srgb, var(--accent) 12%, white);
       color: var(--accent);
       border: 1px solid var(--accent);
       border-radius: 999px;
-      padding: 5px 10px;
-      font-weight: 700;
-      font-size: 13px;
-      margin-bottom: 10px;
+      padding: 7px 13px;
+      font-weight: 900;
+      font-size: 15px;
+      margin-bottom: 12px;
     }}
     .meta {{
       display: inline-block;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
       color: var(--sub);
       background: #f8fafc;
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 6px 8px;
+      border-radius: 12px;
+      padding: 8px 10px;
     }}
     .digest-strip {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 6px;
-      margin: 8px 0 0;
+      gap: 10px;
+      margin: 14px 0 0;
     }}
     .digest-tile {{
-      border-radius: 4px;
-      padding: 8px;
+      border-radius: 14px;
+      padding: 12px;
       color: var(--text);
       background: #f9fafb;
       border: 1px solid var(--line);
-      min-height: 56px;
+      min-height: 74px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -605,12 +617,12 @@ def create_market_report(
       background: #ffffff;
     }}
     .digest-tile span {{
-      font-size: 11px;
+      font-size: 12px;
       opacity: .86;
       font-weight: 800;
     }}
     .digest-tile strong {{
-      font-size: 16px;
+      font-size: 20px;
       line-height: 1.35;
     }}
     .tile-accent, .tile-blue, .tile-green, .tile-gold {{ border-left: 4px solid var(--accent); }}
@@ -649,13 +661,17 @@ def create_market_report(
     .ticker-chip.up strong {{ color: #166534; }}
     .ticker-chip.down strong {{ color: #991b1b; }}
     h2 {{
-      font-size: 18px;
-      margin: 0 0 10px;
-      border-bottom: 1px solid var(--line);
-      padding: 0 0 8px;
+      font-size: 24px;
+      margin: -2px -2px 16px;
+      border-bottom: 0;
+      padding: 10px 14px;
+      color: #0f172a;
+      background: linear-gradient(90deg, var(--soft-blue), #ffffff);
+      border-left: 7px solid var(--accent);
+      border-radius: 14px;
     }}
     h3 {{
-      font-size: 15px;
+      font-size: 17px;
       margin: 0 0 8px;
       color: var(--sub);
     }}
@@ -665,16 +681,16 @@ def create_market_report(
     }}
     .chart-board {{
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
     }}
     .chart-card {{
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 8px;
+      border-radius: 16px;
+      padding: 13px;
       background: #ffffff;
-      box-shadow: none;
-      min-height: 148px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, .06);
+      min-height: 174px;
       overflow: hidden;
       transition: transform .18s ease, border-color .18s ease;
     }}
@@ -691,7 +707,7 @@ def create_market_report(
     }}
     .chart-card-head span {{
       color: var(--sub);
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 900;
       white-space: nowrap;
       overflow: hidden;
@@ -699,14 +715,17 @@ def create_market_report(
     }}
     .chart-card-head em {{
       font-style: normal;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 900;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #f8fafc;
     }}
     .chart-card.up .chart-card-head em {{ color: #16a34a; }}
     .chart-card.down .chart-card-head em {{ color: #dc2626; }}
     .chart-card strong {{
       display: block;
-      font-size: 20px;
+      font-size: 26px;
       line-height: 1.2;
       margin-bottom: 8px;
     }}
@@ -734,19 +753,19 @@ def create_market_report(
     }}
     .board-group {{
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 8px;
+      border-radius: 16px;
+      padding: 12px;
       background: #ffffff;
     }}
     .market-grid {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-      gap: 6px;
+      gap: 10px;
     }}
     .market-tile {{
-      min-height: 62px;
-      border-radius: 4px;
-      padding: 7px;
+      min-height: 78px;
+      border-radius: 14px;
+      padding: 10px;
       color: var(--text);
       background: #ffffff;
       border: 1px solid var(--line);
@@ -760,7 +779,7 @@ def create_market_report(
       background: #f8fafc;
     }}
     .market-tile span {{
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 800;
       opacity: .92;
       white-space: nowrap;
@@ -768,12 +787,12 @@ def create_market_report(
       text-overflow: ellipsis;
     }}
     .market-tile strong {{
-      font-size: 15px;
+      font-size: 19px;
       line-height: 1.2;
     }}
     .market-tile em {{
       font-style: normal;
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 900;
     }}
     .market-tile.up {{ border-left: 4px solid #16a34a; }}
@@ -829,19 +848,22 @@ def create_market_report(
     }}
     .metric-card {{
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 12px 14px;
+      border-radius: 15px;
+      padding: 14px 16px;
       background: #ffffff;
-      font-size: 16px;
-      line-height: 1.6;
-      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.75;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, .05);
     }}
     .section-image {{
       width: 100%;
       display: block;
-      border-radius: 4px;
-      border: 1px solid var(--line);
-      margin-top: 12px;
+      border-radius: 18px;
+      border: 8px solid #0b1624;
+      background: #0b1624;
+      margin-top: 16px;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, .18);
     }}
     .signal-list, .memo-list {{
       list-style: none;
@@ -853,32 +875,32 @@ def create_market_report(
     .signal-item, .memo-item {{
       background: #f8fafc;
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 12px 14px;
-      line-height: 1.7;
-      font-size: 15px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      line-height: 1.85;
+      font-size: 17px;
     }}
     .opportunity-item, .caution-item {{
-      border-radius: 4px;
-      padding: 12px 14px;
-      line-height: 1.8;
-      font-size: 15px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      line-height: 1.9;
+      font-size: 17px;
       border: 1px solid var(--line);
       margin-bottom: 10px;
       list-style: none;
     }}
-    .opportunity-item {{ background: #ffffff; color: var(--good); border-left: 4px solid #16a34a; }}
-    .caution-item {{ background: #ffffff; color: var(--bad); border-left: 4px solid #dc2626; }}
+    .opportunity-item {{ background: var(--soft-green); color: var(--good); border-left: 6px solid #16a34a; }}
+    .caution-item {{ background: var(--soft-red); color: var(--bad); border-left: 6px solid #dc2626; }}
     .scenario-item {{
-      border-radius: 4px;
-      padding: 12px 14px;
-      line-height: 1.8;
-      font-size: 15px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      line-height: 1.9;
+      font-size: 17px;
       border: 1px solid var(--line);
       margin-bottom: 10px;
       list-style: none;
-      background: #ffffff;
-      border-left: 4px solid #2563eb;
+      background: var(--soft-blue);
+      border-left: 6px solid #2563eb;
       color: #1e3a8a;
     }}
     .research-grid {{
@@ -893,12 +915,12 @@ def create_market_report(
     }}
     .research-confidence {{
       border: 1px solid #fed7aa;
-      border-left: 4px solid #f97316;
-      border-radius: 4px;
-      padding: 10px 12px;
+      border-left: 6px solid #f97316;
+      border-radius: 14px;
+      padding: 13px 15px;
       background: #fff7ed;
       color: #9a3412;
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 900;
       line-height: 1.6;
     }}
@@ -912,12 +934,12 @@ def create_market_report(
     }}
     .research-coverage li {{
       border: 1px solid #bfdbfe;
-      border-left: 4px solid #2563eb;
-      border-radius: 4px;
+      border-left: 6px solid #2563eb;
+      border-radius: 14px;
       background: #eff6ff;
       color: #1e3a8a;
-      padding: 8px 10px;
-      font-size: 12px;
+      padding: 11px 13px;
+      font-size: 14px;
       font-weight: 900;
       line-height: 1.55;
     }}
@@ -931,12 +953,12 @@ def create_market_report(
     }}
     .research-evidence li {{
       border: 1px solid #bbf7d0;
-      border-left: 4px solid #16a34a;
-      border-radius: 4px;
+      border-left: 6px solid #16a34a;
+      border-radius: 14px;
       background: #f0fdf4;
       color: #14532d;
-      padding: 9px 11px;
-      font-size: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
       font-weight: 850;
       line-height: 1.6;
     }}
@@ -951,11 +973,11 @@ def create_market_report(
     }}
     .research-card {{
       border: 1px solid var(--line);
-      border-left: 4px solid #0ea5e9;
-      border-radius: 4px;
-      padding: 12px 14px;
+      border-left: 6px solid #0ea5e9;
+      border-radius: 14px;
+      padding: 14px 16px;
       background: #ffffff;
-      line-height: 1.6;
+      line-height: 1.75;
     }}
     .research-card.unavailable {{
       border-left-color: #64748b;
@@ -964,12 +986,12 @@ def create_market_report(
     }}
     .research-meta {{
       color: var(--sub);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 800;
       margin-bottom: 4px;
     }}
     .research-title {{
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 800;
     }}
     .research-title a {{
@@ -978,7 +1000,7 @@ def create_market_report(
     }}
     .research-reason {{
       color: var(--sub);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       margin-top: 4px;
     }}
@@ -1013,10 +1035,10 @@ def create_market_report(
     }}
     .talk {{
       border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
-      line-height: 1.8;
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      line-height: 1.9;
       display: flex;
       gap: 12px;
       align-items: center;
@@ -1024,8 +1046,8 @@ def create_market_report(
     .talk.student {{
       flex-direction: row-reverse;
     }}
-    .talk.teacher {{ background: #ffffff; border-left: 4px solid #f59e0b; }}
-    .talk.student {{ background: #ffffff; border-left: 4px solid #2563eb; }}
+    .talk.teacher {{ background: var(--soft-gold); border-left: 7px solid #f59e0b; }}
+    .talk.student {{ background: var(--soft-blue); border-left: 7px solid #2563eb; }}
     .talk-avatar {{
       width: 86px;
       height: 86px;
@@ -1042,23 +1064,24 @@ def create_market_report(
     }}
     .talk-role {{
       color: var(--sub);
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 800;
       margin-bottom: 4px;
     }}
     .talk-text {{
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 18px;
+      font-weight: 800;
     }}
     .conclusion {{
-      font-size: 19px;
-      line-height: 1.8;
-      font-weight: 700;
-      background: #ffffff;
+      font-size: 23px;
+      line-height: 1.85;
+      font-weight: 900;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, white), #ffffff);
       border: 1px solid var(--line);
-      border-left: 5px solid var(--accent);
-      border-radius: 8px;
-      padding: 14px 16px;
+      border-left: 9px solid var(--accent);
+      border-radius: 18px;
+      padding: 18px 20px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.7);
     }}
     .table {{
       display: grid;
@@ -1071,7 +1094,7 @@ def create_market_report(
       align-items: center;
     }}
     .table-head {{
-      font-size: 12px;
+      font-size: 14px;
       color: var(--sub);
       font-weight: 700;
       padding: 0 6px;
@@ -1079,12 +1102,23 @@ def create_market_report(
     .table-row {{
       background: #ffffff;
       border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 12px;
-      font-size: 15px;
-      font-weight: 700;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 17px;
+      font-weight: 800;
     }}
     @media (max-width: 520px) {{
+      body {{
+        font-size: 16px;
+      }}
+      .page {{
+        padding: 10px 8px 34px;
+      }}
+      .hero, .panel {{
+        border-radius: 16px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }}
       .hero-layout {{
         grid-template-columns: 1fr;
       }}
@@ -1113,6 +1147,24 @@ def create_market_report(
       .talk-avatar {{
         width: 72px;
         height: 72px;
+      }}
+      h1 {{
+        font-size: 25px;
+      }}
+      h2 {{
+        font-size: 20px;
+        padding: 9px 12px;
+      }}
+      .conclusion {{
+        font-size: 19px;
+        padding: 15px 16px;
+      }}
+      .talk-text, .metric-card, .scenario-item, .opportunity-item, .caution-item, .signal-item, .memo-item {{
+        font-size: 16px;
+      }}
+      .section-image {{
+        border-width: 5px;
+        border-radius: 14px;
       }}
     }}
     @media (prefers-reduced-motion: reduce) {{

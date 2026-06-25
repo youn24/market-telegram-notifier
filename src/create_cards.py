@@ -512,12 +512,12 @@ def _draw_dark_line_chart(
     risk_keys = {"US10Y", "SOFR", "VIX", "YIELD_2S10S"}
     all_items = summary.get("sparkline_items", []) or []
     price_items = [item for item in all_items if str(item.get("key", "")) not in risk_keys]
-    items = (price_items or all_items)[:6]
-    plot_x = x + 64
+    items = (price_items or all_items)[:5]
+    plot_x = x + 70
     plot_y = y + 94
-    plot_w = width - 350
-    plot_h = height - 178
-    legend_x = x + width - 250
+    plot_w = width - 140
+    plot_h = height - 260
+    legend_y_base = y + height - 112
     colors = ["#38bdf8", "#f97316", "#22c55e", "#ec4899", "#8b5cf6", "#06b6d4", "#facc15", "#cbd5e1"]
     all_values: list[float] = []
     normalized_map: list[tuple[dict[str, Any], list[float]]] = []
@@ -537,12 +537,12 @@ def _draw_dark_line_chart(
         gy = plot_y + int(plot_h * index / 4)
         label_value = max_v - span * index / 4
         draw.line((plot_x, gy, plot_x + plot_w, gy), fill="#203044", width=1)
-        draw.text((plot_x - 48, gy - 12), f"{label_value:.0f}", fill="#cbd5e1", font=_load_font(16))
+        draw.text((plot_x - 54, gy - 13), f"{label_value:.0f}", fill="#dbeafe", font=_load_font(18, bold=True))
     for index in range(6):
         gx = plot_x + int(plot_w * index / 5)
         draw.line((gx, plot_y, gx, plot_y + plot_h), fill="#162437", width=1)
         label = "当日" if index == 5 else f"{5 - index}営業日前"
-        draw.text((gx - 44, plot_y + plot_h + 16), label, fill="#cbd5e1", font=_load_font(15, bold=True))
+        draw.text((gx - 44, plot_y + plot_h + 18), label, fill="#dbeafe", font=_load_font(16, bold=True))
 
     for index, (item, values) in enumerate(normalized_map):
         color = colors[index % len(colors)]
@@ -552,15 +552,19 @@ def _draw_dark_line_chart(
             py = plot_y + plot_h - int((value - min_v) / span * plot_h)
             points.append((px, py))
         if len(points) >= 2:
-            draw.line(points, fill=color, width=4, joint="curve")
+            draw.line(points, fill=color, width=6, joint="curve")
             for point in points:
-                draw.ellipse((point[0] - 5, point[1] - 5, point[0] + 5, point[1] + 5), fill=color)
-        legend_y = plot_y + index * 44
-        draw.line((legend_x, legend_y + 10, legend_x + 28, legend_y + 10), fill=color, width=5)
-        draw.text((legend_x + 42, legend_y - 4), str(item.get("label", "未確認"))[:13], fill="#e5e7eb", font=_load_font(18, bold=True))
+                draw.ellipse((point[0] - 7, point[1] - 7, point[0] + 7, point[1] + 7), fill=color)
+        legend_col = index % 2
+        legend_row = index // 2
+        legend_x = x + 42 + legend_col * ((width - 84) // 2)
+        legend_y = legend_y_base + legend_row * 34
+        draw.rounded_rectangle((legend_x, legend_y + 7, legend_x + 34, legend_y + 17), radius=5, fill=color)
+        draw.text((legend_x + 46, legend_y - 2), str(item.get("label", "未確認"))[:11], fill="#f8fafc", font=_load_font(20, bold=True))
         change = item.get("change_pct")
         change_text = "未確認" if change is None else f"{change:+.2f}%"
-        draw.text((legend_x + 42, legend_y + 20), change_text, fill="#cbd5e1", font=_load_font(15))
+        change_color = "#4ade80" if isinstance(change, (int, float)) and change >= 0 else "#fb7185"
+        draw.text((legend_x + 178, legend_y - 2), change_text, fill=change_color, font=_load_font(19, bold=True))
 
 
 def _draw_dark_bar_ranking(
@@ -582,11 +586,11 @@ def _draw_dark_bar_ranking(
         draw.text((x + 34, y + 92), "前日比データは未確認です。", fill="#cbd5e1", font=_load_font(22, bold=True))
         return
 
-    plot_x = x + 300
+    plot_x = x + 314
     plot_y = y + 86
-    plot_w = width - 390
+    plot_w = width - 410
     center = plot_x + plot_w // 2
-    row_gap = 42
+    row_gap = 43
     max_abs = max([abs(float(item.get("change_pct", 0))) for item in ranked[:8]] + [1.0])
     draw.line((center, plot_y - 10, center, y + height - 44), fill="#64748b", width=2)
     for tick in [-1.0, -0.5, 0, 0.5, 1.0]:
@@ -598,14 +602,14 @@ def _draw_dark_bar_ranking(
         change = float(item.get("change_pct", 0))
         color = "#4ade80" if change >= 0 else "#fb7185"
         length = int(min(abs(change), max_abs) / max_abs * (plot_w // 2 - 8))
-        draw.text((x + 34, row_y - 8), label, fill="#e5e7eb", font=_load_font(18, bold=True))
+        draw.text((x + 34, row_y - 10), label, fill="#f8fafc", font=_load_font(21, bold=True))
         if change >= 0:
             draw.rounded_rectangle((center, row_y - 3, center + length, row_y + 20), radius=10, fill=color)
         else:
             draw.rounded_rectangle((center - length, row_y - 3, center, row_y + 20), radius=10, fill=color)
         value = f"{change:+.2f}%"
         value_x = center + length + 10 if change >= 0 else center - length - _text_width(draw, value, _load_font(17, bold=True)) - 10
-        draw.text((value_x, row_y - 8), value, fill="#f8fafc", font=_load_font(17, bold=True))
+        draw.text((value_x, row_y - 10), value, fill="#f8fafc", font=_load_font(20, bold=True))
     draw.text((center - 12, y + height - 42), "0%", fill="#cbd5e1", font=_load_font(16, bold=True))
 
 
@@ -619,23 +623,23 @@ def _draw_dark_memo(
     palette: dict[str, str],
 ) -> None:
     _draw_panel(draw, (x, y, x + width, y + height), None, palette["accent"])
-    draw.text((x + 28, y + 22), "AI ひと言メモ", fill=palette["accent2"], font=_load_font(30, bold=True))
+    draw.text((x + 28, y + 22), "AI ひと言メモ", fill=palette["accent2"], font=_load_font(34, bold=True))
     comments = (summary.get("ai_summary") or summary.get("deep_summary_lines") or summary.get("commentary", []))[:3]
     if not comments:
         comments = [summary.get("conclusion_text", "大きな偏りは未確認です。")]
     text_y = y + 82
     for comment in comments[:3]:
-        draw.text((x + 38, text_y), "•", fill="#f8fafc", font=_load_font(24, bold=True))
-        memo_font = _load_font(23, bold=True)
+        draw.rounded_rectangle((x + 30, text_y - 8, x + width - 30, text_y + 34), radius=16, fill="#10243a", outline="#1e3a5f")
+        draw.text((x + 48, text_y - 1), "•", fill="#f8fafc", font=_load_font(27, bold=True))
+        memo_font = _load_font(25, bold=True)
         memo_line = _shorten_text(draw, comment, memo_font, width - 110, 1)[0]
-        draw.text((x + 70, text_y - 2), memo_line, fill="#f8fafc", font=memo_font)
-        text_y += 34
-        text_y += 6
+        draw.text((x + 82, text_y - 3), memo_line, fill="#f8fafc", font=memo_font)
+        text_y += 49
     evidence = summary.get("research_evidence_briefs") or summary.get("research_evidence_lines", [])
     if evidence:
-        line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(16), width - 70, 1)[0]
+        line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(18), width - 70, 1)[0]
         draw.rounded_rectangle((x + 28, y + height - 54, x + width - 28, y + height - 18), radius=12, fill="#10243a", outline="#1e3a5f")
-        draw.text((x + 44, y + height - 47), line, fill="#bfdbfe", font=_load_font(16))
+        draw.text((x + 44, y + height - 48), line, fill="#bfdbfe", font=_load_font(18, bold=True))
 
 
 def create_summary_card(
