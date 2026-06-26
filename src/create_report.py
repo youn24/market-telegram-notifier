@@ -392,6 +392,19 @@ def create_market_report(
     hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
     research_html = _render_research_cards(summary)
+    design_tools_html = """
+      <div class="design-actions">
+        <a class="design-pill primary" href="design-brief.md">Canva / Adobe 用デザイン指示書</a>
+        <span class="design-pill">チャート最優先</span>
+        <span class="design-pill">文字背景あり</span>
+        <span class="design-pill">未確認は明示</span>
+      </div>
+      <div class="visual-principles">
+        <div><strong>1. 先に結論</strong><span>強気・警戒・様子見を最上部で判断できます。</span></div>
+        <div><strong>2. 次に数字</strong><span>重要指標と前日比ランキングを大きく表示します。</span></div>
+        <div><strong>3. 最後に作戦</strong><span>先生とカワウソ君の会話で行動に落とします。</span></div>
+      </div>
+    """
 
     chart_img = f'<img src="assets/{copied_chart}" alt="market chart" class="section-image">' if copied_chart else ""
     card_img = f'<img src="assets/{copied_card}" alt="summary card" class="section-image">' if copied_card else ""
@@ -624,6 +637,58 @@ def create_market_report(
     .digest-tile strong {{
       font-size: 20px;
       line-height: 1.35;
+    }}
+    .design-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }}
+    .design-pill {{
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 13px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 14px;
+      font-weight: 900;
+      text-decoration: none;
+    }}
+    .design-pill.primary {{
+      color: #ffffff;
+      background: linear-gradient(135deg, #0f172a, color-mix(in srgb, var(--accent) 72%, #0f172a));
+      border-color: color-mix(in srgb, var(--accent) 55%, #0f172a);
+      box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 18%, transparent);
+    }}
+    .visual-principles {{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }}
+    .visual-principles div {{
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 15px;
+      background:
+        linear-gradient(135deg, #ffffff 0%, color-mix(in srgb, var(--accent) 7%, white) 100%);
+      min-height: 104px;
+    }}
+    .visual-principles strong {{
+      display: block;
+      color: var(--accent);
+      font-size: 17px;
+      margin-bottom: 8px;
+    }}
+    .visual-principles span {{
+      display: block;
+      color: #334155;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.65;
     }}
     .tile-accent, .tile-blue, .tile-green, .tile-gold {{ border-left: 4px solid var(--accent); }}
     .ticker-strip {{
@@ -1133,6 +1198,13 @@ def create_market_report(
         width: 64px;
         height: 64px;
       }}
+      .visual-principles {{
+        grid-template-columns: 1fr;
+      }}
+      .design-pill {{
+        width: 100%;
+        justify-content: center;
+      }}
       .analysis-summary {{
         grid-template-columns: 1fr;
       }}
@@ -1236,6 +1308,11 @@ def create_market_report(
         </div>
         {hero_illustration_html}
       </div>
+    </section>
+
+    <section class="panel design-panel">
+      <h2>デザイン方針</h2>
+      {design_tools_html}
     </section>
 
     <section class="panel">
