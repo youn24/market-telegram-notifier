@@ -472,6 +472,110 @@ def _build_watchpoints(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> 
     return opportunities[:3], cautions[:3]
 
 
+def _numeric_change(item: dict[str, Any] | None) -> float | None:
+    if not item:
+        return None
+    value = item.get("change_pct")
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _score_band(score: int) -> str:
+    if score >= 70:
+        return "攻め優位"
+    if score >= 55:
+        return "やや強い"
+    if score >= 45:
+        return "中立"
+    if score >= 30:
+        return "守り優位"
+    return "強い警戒"
+
+
+def _build_analysis_dashboard(raw_data: dict[str, Any], tone: str, thresholds: dict[str, Any]) -> dict[str, Any]:
+    items = raw_data.get("items", [])
+    macro_items = raw_data.get("macro_items", [])
+    changes = [float(item["change_pct"]) for item in items if isinstance(item.get("change_pct"), (int, float))]
+    up_count = len([value for value in changes if value > 0])
+    down_count = len([value for value in changes if value < 0])
+    breadth = round((up_count / len(changes)) * 100) if changes else 50
+    average_change = sum(changes) / len(changes) if changes else 0.0
+
+    us10y = _find_item(macro_items, "US10Y")
+    vix = _find_item(macro_items, "VIX")
+    dollar = _find_item(macro_items, "DOLLAR_BROAD")
+    spread = _find_item(macro_items, "YIELD_2S10S")
+    vix_change = _numeric_change(vix)
+    us10y_change = _numeric_change(us10y)
+    dollar_change = _numeric_change(dollar)
+
+    risk_points = 0
+    risk_reasons: list[str] = []
+    if vix_change is not None:
+        if vix_change >= 3:
+            risk_points += 22
+            risk_reasons.append(f"VIXが{vix_change:+.2f}%で警戒温度上昇")
+        elif vix_change <= -3:
+            risk_points -= 10
+            risk_reasons.append(f"VIXが{vix_change:+.2f}%で過度な警戒は後退")
+    if us10y_change is not None and us10y_change >= 1:
+        risk_points += 10
+        risk_reasons.append(f"米10年金利が{us10y_change:+.2f}%で株の重石に注意")
+    if dollar_change is not None and dollar_change >= 0.5:
+        risk_points += 6
+        risk_reasons.append(f"ドル指数が{dollar_change:+.2f}%で外需・為替感応を確認")
+    if spread and spread.get("current") is not None:
+        risk_reasons.append(f"2年10年スプレッドは{spread['current']:.2f}%")
+
+    market_score = 50 + average_change * 12 + (breadth - 50) * 0.35 - risk_points * 0.45
+    if tone == "bull":
+        market_score += 6
+    elif tone == "bear":
+        market_score -= 6
+    score = max(0, min(100, round(market_score)))
+
+    leaders = sorted(
+        [item for item in items if isinstance(item.get("change_pct"), (int, float))],
+        key=lambda item: float(item.get("change_pct", 0)),
+        reverse=True,
+    )
+    laggards = list(reversed(leaders))
+    leader_text = "、".join(f"{item.get('label')} {_format_pct(item.get('change_pct'))}" for item in leaders[:2]) or "未確認"
+    laggard_text = "、".join(f"{item.get('label')} {_format_pct(item.get('change_pct'))}" for item in laggards[:2]) or "未確認"
+
+    if score >= 65:
+        action = "強い銘柄の浅い押し目だけを候補にし、飛び乗りは避ける"
+    elif score <= 40:
+        action = "守りを優先し、戻り売り・下げ止まり確認までは無理に入らない"
+    else:
+        action = "方向が出るまで観察し、出来高と値持ちが揃った銘柄だけを見る"
+
+    checklist = [
+        f"地合いスコア: {score}/100（{_score_band(score)}）",
+        f"上昇/下落数: {up_count} / {down_count}、平均変化率は{average_change:+.2f}%",
+        f"追い風: {leader_text}",
+        f"逆風: {laggard_text}",
+        f"実戦方針: {action}",
+    ]
+    if risk_reasons:
+        checklist.append(f"リスク温度: {' / '.join(risk_reasons[:2])}")
+
+    return {
+        "score": score,
+        "band": _score_band(score),
+        "breadth": breadth,
+        "up_count": up_count,
+        "down_count": down_count,
+        "average_change": average_change,
+        "leader_text": leader_text,
+        "laggard_text": laggard_text,
+        "risk_reasons": risk_reasons[:3] or ["マクロリスクは未確認を残して判断"],
+        "action": action,
+        "checklist": checklist,
+    }
+
+
 def _format_macro_value(item: dict[str, Any]) -> str:
     current = item.get("current")
     unit = item.get("unit", "")
@@ -765,6 +869,7 @@ def build_summary(
     conclusion_label, conclusion_text = _conclusion_block(raw_data, thresholds, tone)
     opportunities, cautions = _build_watchpoints(raw_data, thresholds)
     scenarios = _build_scenarios(raw_data, tone)
+    analysis_dashboard = _build_analysis_dashboard(raw_data, tone, thresholds)
     deep_summary_lines = _deep_summary_lines(
         raw_data,
         tone,
@@ -774,6 +879,7 @@ def build_summary(
         research_confidence_line,
         research_evidence_briefs,
     )
+    deep_summary_lines = [analysis_dashboard["checklist"][0], *deep_summary_lines[:3]]
     key_metrics = macro_lines[:4] + market_lines[:4]
 
     return {
@@ -796,6 +902,8 @@ def build_summary(
         "opportunities": opportunities,
         "cautions": cautions,
         "scenarios": scenarios,
+        "analysis_dashboard": analysis_dashboard,
+        "trade_checklist": analysis_dashboard["checklist"],
         "visual_items": _build_visual_items(raw_data),
         "sparkline_items": _build_sparkline_items(raw_data),
         "research_items": raw_data.get("research", {}).get("items", []),

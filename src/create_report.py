@@ -48,6 +48,42 @@ def _render_metrics(metrics: list[str]) -> str:
     return "\n".join(cards)
 
 
+def _render_analysis_dashboard(summary: dict[str, Any]) -> str:
+    dashboard = summary.get("analysis_dashboard", {})
+    if not dashboard:
+        return '<div class="metric-card">分析ダッシュボードは未確認です。</div>'
+    score = int(dashboard.get("score", 50))
+    band = _safe(str(dashboard.get("band", "中立")))
+    breadth = int(dashboard.get("breadth", 50))
+    checklist = "".join(
+        f'<li>{_safe(line)}</li>'
+        for line in summary.get("trade_checklist", [])[:5]
+    )
+    risk_lines = "".join(
+        f'<span>{_safe(line)}</span>'
+        for line in dashboard.get("risk_reasons", [])[:3]
+    )
+    return "\n".join(
+        [
+            '<div class="pro-analysis">',
+            '  <div class="score-orb">',
+            f'    <div class="score-number">{score}</div>',
+            '    <div class="score-unit">/100</div>',
+            f'    <div class="score-band">{band}</div>',
+            '  </div>',
+            '  <div class="analysis-cards">',
+            f'    <article><span>市場の幅</span><strong>{breadth}%</strong><em>上昇銘柄の比率感</em></article>',
+            f'    <article><span>追い風</span><strong>{_safe(str(dashboard.get("leader_text", "未確認")))}</strong><em>強い側</em></article>',
+            f'    <article><span>逆風</span><strong>{_safe(str(dashboard.get("laggard_text", "未確認")))}</strong><em>弱い側</em></article>',
+            f'    <article class="wide"><span>実戦方針</span><strong>{_safe(str(dashboard.get("action", "未確認")))}</strong><em>今日の判断軸</em></article>',
+            '  </div>',
+            f'  <div class="risk-tape">{risk_lines}</div>',
+            f'  <ul class="trade-checklist">{checklist}</ul>',
+            '</div>',
+        ]
+    )
+
+
 def _render_digest_tiles(summary: dict[str, Any], raw_data: dict[str, Any]) -> str:
     macro_count = len([item for item in raw_data.get("macro_items", []) if item.get("status") == "ok"])
     market_count = len([item for item in raw_data.get("items", []) if item.get("status") == "ok"])
@@ -383,6 +419,7 @@ def create_market_report(
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
     market_metrics_html = _render_metrics(summary.get("market_metrics", [])[:5])
     macro_cards_html = _render_macro_cards(raw_data.get("macro_items", []))
+    analysis_dashboard_html = _render_analysis_dashboard(summary)
     signals_html = _render_list(summary.get("signals", [])[:4], "signal-item")
     commentary_html = _render_list(summary.get("commentary", [])[:3], "memo-item")
     opportunity_html = _render_bullets(summary.get("opportunities", [])[:3], "opportunity-item")
@@ -921,6 +958,116 @@ def create_market_report(
       font-weight: 800;
       box-shadow: 0 8px 18px rgba(15, 23, 42, .05);
     }}
+    .pro-analysis {{
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }}
+    .score-orb {{
+      min-height: 210px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 32%, white), transparent 54%),
+        linear-gradient(160deg, #0f172a, #10243a);
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 50%, #334155);
+      box-shadow: 0 18px 34px rgba(15, 23, 42, .22);
+    }}
+    .score-number {{
+      font-size: 64px;
+      line-height: .95;
+      font-weight: 1000;
+      letter-spacing: -.04em;
+    }}
+    .score-unit {{
+      color: #bfdbfe;
+      font-weight: 900;
+      margin-top: 4px;
+    }}
+    .score-band {{
+      margin-top: 14px;
+      border: 1px solid color-mix(in srgb, var(--accent) 65%, white);
+      border-radius: 999px;
+      padding: 7px 14px;
+      color: #ffffff;
+      font-weight: 1000;
+      background: color-mix(in srgb, var(--accent) 28%, transparent);
+    }}
+    .analysis-cards {{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }}
+    .analysis-cards article {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background:
+        linear-gradient(135deg, #ffffff, color-mix(in srgb, var(--accent) 6%, white));
+      min-height: 112px;
+    }}
+    .analysis-cards article.wide {{
+      grid-column: 1 / -1;
+      border-left: 8px solid var(--accent);
+    }}
+    .analysis-cards span {{
+      display: block;
+      color: var(--sub);
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }}
+    .analysis-cards strong {{
+      display: block;
+      font-size: 18px;
+      line-height: 1.55;
+      color: #0f172a;
+    }}
+    .analysis-cards em {{
+      display: block;
+      margin-top: 8px;
+      color: var(--accent);
+      font-style: normal;
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .risk-tape {{
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }}
+    .risk-tape span {{
+      border-radius: 999px;
+      padding: 8px 11px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      font-size: 13px;
+      font-weight: 900;
+    }}
+    .trade-checklist {{
+      grid-column: 1 / -1;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      padding: 0;
+      margin: 12px 0 0;
+    }}
+    .trade-checklist li {{
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      font-weight: 850;
+      line-height: 1.65;
+    }}
     .section-image {{
       width: 100%;
       display: block;
@@ -1208,6 +1355,12 @@ def create_market_report(
       .analysis-summary {{
         grid-template-columns: 1fr;
       }}
+      .pro-analysis {{
+        grid-template-columns: 1fr;
+      }}
+      .analysis-cards {{
+        grid-template-columns: 1fr;
+      }}
       .summary-characters {{
         max-width: 220px;
         margin: 0 auto;
@@ -1318,6 +1471,11 @@ def create_market_report(
     <section class="panel">
       <h2>結論</h2>
       <div class="conclusion">{_safe(summary.get("conclusion_text", ""))}</div>
+    </section>
+
+    <section class="panel">
+      <h2>プロ判断ボード</h2>
+      {analysis_dashboard_html}
     </section>
 
     <section class="panel">

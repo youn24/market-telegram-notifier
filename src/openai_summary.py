@@ -70,6 +70,8 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             "",
             f"Conclusion label: {summary.get('conclusion_label', '')}",
             f"Conclusion text: {' '.join(str(summary.get('conclusion_text', '')).split())[:160]}",
+            "Professional dashboard:",
+            *_as_lines(summary.get("trade_checklist", []), 5, 110),
             "Rule summary:",
             *_as_lines(summary.get("commentary", []), 2, 100),
             "Macro metrics:",

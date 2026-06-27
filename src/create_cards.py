@@ -442,6 +442,11 @@ def _headline_chip(summary: dict[str, Any], visual_items: list[dict[str, Any]]) 
     vix = next((item for item in visual_items if "VIX" in str(item.get("label", "")).upper()), None)
     vix_change = vix.get("change_pct") if vix else None
     tone = summary.get("market_tone", "neutral")
+    dashboard = summary.get("analysis_dashboard", {})
+    score = dashboard.get("score")
+    band = dashboard.get("band")
+    if isinstance(score, int) and band:
+        return f"地合い {score}/100・{band}"
     if isinstance(vix_change, (int, float)) and vix_change >= 1.0:
         return "VIX上昇 / 警戒感あり"
     if tone == "bull":
@@ -623,8 +628,13 @@ def _draw_dark_memo(
     palette: dict[str, str],
 ) -> None:
     _draw_panel(draw, (x, y, x + width, y + height), None, palette["accent"])
-    draw.text((x + 28, y + 22), "AI ひと言メモ", fill=palette["accent2"], font=_load_font(34, bold=True))
-    comments = (summary.get("ai_summary") or summary.get("deep_summary_lines") or summary.get("commentary", []))[:3]
+    draw.text((x + 28, y + 22), "AI 実戦メモ", fill=palette["accent2"], font=_load_font(34, bold=True))
+    comments = (
+        summary.get("trade_checklist")
+        or summary.get("ai_summary")
+        or summary.get("deep_summary_lines")
+        or summary.get("commentary", [])
+    )[:3]
     if not comments:
         comments = [summary.get("conclusion_text", "大きな偏りは未確認です。")]
     text_y = y + 82
