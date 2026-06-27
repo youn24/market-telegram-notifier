@@ -152,6 +152,39 @@ def build_design_direction(
         ]
     )
 
+    hero_background_prompt = "\n".join(
+        [
+            "Create a premium dark fintech background for a Japanese market dashboard.",
+            "Canvas: 1080x1920 portrait, optimized for mobile scrolling.",
+            f"Mood: {direction['mood']}",
+            "Visual style: subtle glass panels, clean grid, soft glow, no readable text.",
+            "Leave the center and upper third clean so charts and Japanese headings remain readable.",
+            f"Palette: {direction['palette']}",
+            "Do not include numbers, brand logos, or fictional tickers.",
+        ]
+    )
+
+    icon_set_prompt = "\n".join(
+        [
+            "Create a cohesive vector-style icon set for a market digest UI.",
+            "Icons needed: macro economy, Japan stocks, FX, interest rates, VIX/risk, earnings, liquidity, watchlist.",
+            "Style: simple professional fintech, rounded corners, high contrast, transparent background.",
+            f"Palette: {direction['palette']}",
+            "No text, no numbers, no logos. Each icon must remain readable at 64px on a smartphone.",
+        ]
+    )
+
+    character_accent_prompt = "\n".join(
+        [
+            "Create small UI accent illustrations of Ganesha-sensei and Kawauso-kun for a market report.",
+            "Ganesha-sensei: calm teacher explaining charts with a pointer.",
+            "Kawauso-kun: curious student asking a practical trading question.",
+            "Composition: two separate transparent PNG cutouts, no speech bubble text.",
+            "Style: warm Japanese educational finance illustration, polished but not cluttered.",
+            "Keep empty space around characters so they do not cover charts or important text.",
+        ]
+    )
+
     canva_prompt = "\n".join(
         [
             "スマホで読みやすい日本語の金融市場ダイジェストを作成してください。",
@@ -188,6 +221,9 @@ def build_design_direction(
         "adobe_concept_name": adobe_concept["name"],
         "adobe_concept_reason": adobe_concept["best_for"],
         "adobe_concept_prompt": adobe_concept["prompt"],
+        "hero_background_prompt": hero_background_prompt,
+        "icon_set_prompt": icon_set_prompt,
+        "character_accent_prompt": character_accent_prompt,
         "palette": direction["palette"],
         "mood": direction["mood"],
     }
@@ -244,6 +280,20 @@ def write_design_handoff(site_dir: Path, direction: dict[str, str]) -> None:
                 "## Image Generation Prompt",
                 "",
                 direction["image_prompt"],
+                "",
+                "## Image Asset Prompts",
+                "",
+                "### Hero Background",
+                "",
+                direction["hero_background_prompt"],
+                "",
+                "### Icon Set",
+                "",
+                direction["icon_set_prompt"],
+                "",
+                "### Character Accent",
+                "",
+                direction["character_accent_prompt"],
                 "",
                 "## Palette",
                 "",

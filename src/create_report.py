@@ -84,6 +84,109 @@ def _render_analysis_dashboard(summary: dict[str, Any]) -> str:
     )
 
 
+def _to_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _movement_class(value: float | None) -> str:
+    if value is None:
+        return "flat"
+    if value > 0:
+        return "up"
+    if value < 0:
+        return "down"
+    return "flat"
+
+
+def _format_value(item: dict[str, Any]) -> str:
+    value = _to_float(item.get("current"))
+    unit = str(item.get("unit", ""))
+    if value is None:
+        return "未確認"
+    if abs(value) >= 100:
+        return f"{value:,.2f}{unit}"
+    return f"{value:.2f}{unit}"
+
+
+def _format_change(value: float | None) -> str:
+    if value is None:
+        return "未確認"
+    return f"{value:+.2f}%"
+
+
+def _render_visual_signal_panel(summary: dict[str, Any]) -> str:
+    dashboard = summary.get("analysis_dashboard", {})
+    score = max(0, min(100, int(_to_float(dashboard.get("score")) or 50)))
+    breadth = max(0, min(100, int(_to_float(dashboard.get("breadth")) or 50)))
+    band = str(dashboard.get("band", summary.get("conclusion_label", "中立")))
+    risk_reasons = dashboard.get("risk_reasons", []) or ["目立つリスク材料は未確認です。"]
+    action = str(dashboard.get("action", "追加確認が必要です。"))
+    leader = str(dashboard.get("leader_text", "未確認"))
+    laggard = str(dashboard.get("laggard_text", "未確認"))
+    checklist = summary.get("trade_checklist", [])[:4]
+    checklist_html = "".join(f"<li>{_safe(str(line))}</li>" for line in checklist)
+    risk_html = "".join(f"<span>{_safe(str(line))}</span>" for line in risk_reasons[:3])
+    return "\n".join(
+        [
+            '<div class="visual-signal">',
+            '  <div class="signal-meter-card">',
+            '    <span class="signal-kicker">Market Score</span>',
+            f'    <strong>{score}</strong>',
+            f'    <em>{_safe(band)}</em>',
+            f'    <div class="meter-track"><i style="width:{score}%"></i></div>',
+            f'    <p>市場の広がり {breadth}% / 強い側: {_safe(leader)} / 弱い側: {_safe(laggard)}</p>',
+            '  </div>',
+            '  <div class="signal-cards">',
+            f'    <article><b class="signal-icon trend"></b><span>流れ</span><strong>{_safe(leader)}</strong></article>',
+            f'    <article><b class="signal-icon risk"></b><span>警戒</span><strong>{_safe(str(risk_reasons[0]))}</strong></article>',
+            f'    <article><b class="signal-icon action"></b><span>作戦</span><strong>{_safe(action)}</strong></article>',
+            '  </div>',
+            f'  <div class="risk-radar">{risk_html}</div>',
+            f'  <ul class="visual-checklist">{checklist_html}</ul>',
+            '</div>',
+        ]
+    )
+
+
+def _render_market_heatmap(raw_data: dict[str, Any]) -> str:
+    items = [
+        item
+        for item in [*raw_data.get("items", []), *raw_data.get("macro_items", [])]
+        if item.get("label")
+    ]
+    ranked = sorted(
+        items,
+        key=lambda item: abs(_to_float(item.get("change_pct")) or 0),
+        reverse=True,
+    )[:16]
+    if not ranked:
+        return '<div class="heatmap-empty">ヒートマップは未確認です。</div>'
+
+    cells: list[str] = []
+    for item in ranked:
+        change = _to_float(item.get("change_pct"))
+        klass = _movement_class(change)
+        cells.append(
+            "\n".join(
+                [
+                    f'<article class="heatmap-cell {klass}">',
+                    f'  <span>{_safe(str(item.get("label", "")))}</span>',
+                    f'  <strong>{_safe(_format_value(item))}</strong>',
+                    f'  <em>{_safe(_format_change(change))}</em>',
+                    '</article>',
+                ]
+            )
+        )
+    return '<div class="heatmap-grid">' + "\n".join(cells) + "</div>"
+
+
 def _render_digest_tiles(summary: dict[str, Any], raw_data: dict[str, Any]) -> str:
     macro_count = len([item for item in raw_data.get("macro_items", []) if item.get("status") == "ok"])
     market_count = len([item for item in raw_data.get("items", []) if item.get("status") == "ok"])
@@ -421,6 +524,8 @@ def create_market_report(
     market_metrics_html = _render_metrics(summary.get("market_metrics", [])[:5])
     macro_cards_html = _render_macro_cards(raw_data.get("macro_items", []))
     analysis_dashboard_html = _render_analysis_dashboard(summary)
+    visual_signal_html = _render_visual_signal_panel(summary)
+    market_heatmap_html = _render_market_heatmap(raw_data)
     signals_html = _render_list(summary.get("signals", [])[:4], "signal-item")
     commentary_html = _render_list(summary.get("commentary", [])[:3], "memo-item")
     opportunity_html = _render_bullets(summary.get("opportunities", [])[:3], "opportunity-item")
@@ -1124,6 +1229,231 @@ def create_market_report(
       font-weight: 850;
       line-height: 1.65;
     }}
+    .terminal-panel {{
+      color: #e5f4ff;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, .24), transparent 32%),
+        radial-gradient(circle at 100% 8%, rgba(245, 158, 11, .16), transparent 28%),
+        linear-gradient(145deg, #07111d 0%, #0b1726 58%, #07111d 100%);
+      border-color: rgba(96, 165, 250, .42);
+      box-shadow: 0 24px 58px rgba(2, 6, 23, .32);
+    }}
+    .terminal-panel h2,
+    .terminal-panel h3 {{
+      color: #f8fafc;
+      background: rgba(15, 23, 42, .72);
+      border-color: #38bdf8;
+    }}
+    .terminal-panel h3 {{
+      margin: 18px 0 12px;
+      padding: 9px 12px;
+      border-left: 6px solid #38bdf8;
+      border-radius: 14px;
+    }}
+    .visual-signal {{
+      display: grid;
+      grid-template-columns: minmax(210px, .8fr) 1.4fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }}
+    .signal-meter-card {{
+      border: 1px solid rgba(96, 165, 250, .36);
+      border-radius: 22px;
+      padding: 18px;
+      background: linear-gradient(160deg, rgba(15, 23, 42, .92), rgba(8, 47, 73, .74));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04);
+    }}
+    .signal-kicker {{
+      display: block;
+      color: #7dd3fc;
+      font-size: 12px;
+      font-weight: 1000;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }}
+    .signal-meter-card strong {{
+      display: inline-block;
+      font-size: 70px;
+      line-height: 1;
+      margin-top: 8px;
+      letter-spacing: -.06em;
+    }}
+    .signal-meter-card em {{
+      display: inline-block;
+      margin-left: 10px;
+      color: #fde68a;
+      font-style: normal;
+      font-weight: 1000;
+      vertical-align: super;
+    }}
+    .signal-meter-card p {{
+      margin: 12px 0 0;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.7;
+      font-weight: 800;
+    }}
+    .meter-track {{
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(148, 163, 184, .22);
+      margin-top: 12px;
+    }}
+    .meter-track i {{
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #ef4444, #f59e0b 48%, #22c55e);
+      box-shadow: 0 0 18px rgba(34, 197, 94, .38);
+    }}
+    .signal-cards {{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }}
+    .signal-cards article {{
+      border: 1px solid rgba(96, 165, 250, .32);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(15, 23, 42, .68);
+      min-height: 136px;
+    }}
+    .signal-cards span {{
+      display: block;
+      color: #93c5fd;
+      font-size: 13px;
+      font-weight: 1000;
+      margin: 10px 0 6px;
+    }}
+    .signal-cards strong {{
+      display: block;
+      color: #f8fafc;
+      font-size: 15px;
+      line-height: 1.65;
+    }}
+    .signal-icon {{
+      display: inline-grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, .16);
+      border: 1px solid rgba(125, 211, 252, .34);
+      position: relative;
+    }}
+    .signal-icon::before {{
+      content: "";
+      width: 18px;
+      height: 18px;
+      border: 3px solid #7dd3fc;
+      border-left: 0;
+      border-bottom: 0;
+      transform: rotate(-45deg);
+      border-radius: 2px;
+    }}
+    .signal-icon.risk::before {{
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 18px solid #f97316;
+      border-top: 0;
+      transform: none;
+    }}
+    .signal-icon.action::before {{
+      width: 18px;
+      height: 18px;
+      border: 3px solid #22c55e;
+      border-top: 0;
+      border-left: 0;
+      transform: rotate(45deg);
+    }}
+    .risk-radar {{
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }}
+    .risk-radar span {{
+      border-radius: 999px;
+      padding: 8px 11px;
+      color: #fed7aa;
+      background: rgba(154, 52, 18, .22);
+      border: 1px solid rgba(251, 146, 60, .42);
+      font-size: 13px;
+      font-weight: 900;
+    }}
+    .visual-checklist {{
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }}
+    .visual-checklist li {{
+      border-radius: 14px;
+      padding: 11px 13px;
+      color: #dbeafe;
+      background: rgba(30, 41, 59, .78);
+      border: 1px solid rgba(148, 163, 184, .22);
+      font-size: 14px;
+      font-weight: 850;
+      line-height: 1.6;
+    }}
+    .heatmap-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }}
+    .heatmap-cell {{
+      min-height: 94px;
+      border-radius: 16px;
+      padding: 12px;
+      color: #f8fafc;
+      background: rgba(15, 23, 42, .72);
+      border: 1px solid rgba(148, 163, 184, .24);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }}
+    .heatmap-cell.up {{
+      background: linear-gradient(145deg, rgba(22, 101, 52, .96), rgba(20, 83, 45, .62));
+      border-color: rgba(74, 222, 128, .4);
+    }}
+    .heatmap-cell.down {{
+      background: linear-gradient(145deg, rgba(153, 27, 27, .96), rgba(127, 29, 29, .62));
+      border-color: rgba(248, 113, 113, .4);
+    }}
+    .heatmap-cell span {{
+      color: rgba(248, 250, 252, .86);
+      font-size: 12px;
+      font-weight: 1000;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .heatmap-cell strong {{
+      font-size: 20px;
+      line-height: 1.2;
+      margin-top: 8px;
+    }}
+    .heatmap-cell em {{
+      color: #ffffff;
+      font-style: normal;
+      font-size: 16px;
+      font-weight: 1000;
+    }}
+    .heatmap-empty {{
+      border-radius: 16px;
+      padding: 18px;
+      background: rgba(15, 23, 42, .72);
+      border: 1px solid rgba(148, 163, 184, .24);
+      font-weight: 900;
+    }}
     .section-image {{
       width: 100%;
       display: block;
@@ -1420,6 +1750,18 @@ def create_market_report(
       .analysis-cards {{
         grid-template-columns: 1fr;
       }}
+      .visual-signal {{
+        grid-template-columns: 1fr;
+      }}
+      .signal-cards {{
+        grid-template-columns: 1fr;
+      }}
+      .visual-checklist {{
+        grid-template-columns: 1fr;
+      }}
+      .heatmap-grid {{
+        grid-template-columns: repeat(2, 1fr);
+      }}
       .summary-characters {{
         max-width: 220px;
         margin: 0 auto;
@@ -1535,6 +1877,13 @@ def create_market_report(
     <section class="panel">
       <h2>プロ判断ボード</h2>
       {analysis_dashboard_html}
+    </section>
+
+    <section class="panel terminal-panel">
+      <h2>視覚ダッシュボード</h2>
+      {visual_signal_html}
+      <h3>騰落ヒートマップ</h3>
+      {market_heatmap_html}
     </section>
 
     <section class="panel">
