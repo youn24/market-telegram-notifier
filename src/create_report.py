@@ -399,6 +399,7 @@ def create_market_report(
     site_dir: Path,
     card_path: Path | None,
     chart_path: Path | None,
+    design_direction: dict[str, Any] | None = None,
 ) -> Path:
     site_dir.mkdir(parents=True, exist_ok=True)
     assets_dir = site_dir / "assets"
@@ -429,12 +430,31 @@ def create_market_report(
     hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
     research_html = _render_research_cards(summary)
-    design_tools_html = """
+    design_direction = design_direction or {}
+    selected_canva_name = _safe(str(design_direction.get("canva_candidate_name", "Canva候補はdesign-brief.mdで確認")))
+    selected_canva_url = _safe(str(design_direction.get("canva_candidate_url", "design-brief.md")))
+    selected_canva_reason = _safe(str(design_direction.get("canva_candidate_reason", "今回の相場に合わせた候補を表示します。")))
+    selected_adobe_name = _safe(str(design_direction.get("adobe_concept_name", "Adobe制作候補")))
+    selected_adobe_reason = _safe(str(design_direction.get("adobe_concept_reason", "Adobe Express / Illustrator向けの制作方針です。")))
+    design_tools_html = f"""
       <div class="design-actions">
         <a class="design-pill primary" href="design-brief.md">Canva / Adobe 用デザイン指示書</a>
+        <a class="design-pill primary" href="{selected_canva_url}">{selected_canva_name}</a>
         <span class="design-pill">チャート最優先</span>
         <span class="design-pill">文字背景あり</span>
         <span class="design-pill">未確認は明示</span>
+      </div>
+      <div class="selected-designs">
+        <article>
+          <span>今回のCanva候補</span>
+          <strong>{selected_canva_name}</strong>
+          <em>{selected_canva_reason}</em>
+        </article>
+        <article>
+          <span>Adobe候補</span>
+          <strong>{selected_adobe_name}</strong>
+          <em>{selected_adobe_reason}</em>
+        </article>
       </div>
       <div class="visual-principles">
         <div><strong>1. 先に結論</strong><span>強気・警戒・様子見を最上部で判断できます。</span></div>
@@ -699,6 +719,42 @@ def create_market_report(
       background: linear-gradient(135deg, #0f172a, color-mix(in srgb, var(--accent) 72%, #0f172a));
       border-color: color-mix(in srgb, var(--accent) 55%, #0f172a);
       box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 18%, transparent);
+    }}
+    .selected-designs {{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }}
+    .selected-designs article {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background:
+        linear-gradient(135deg, #ffffff 0%, color-mix(in srgb, var(--accent) 8%, white) 100%);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, .06);
+    }}
+    .selected-designs span {{
+      display: block;
+      color: var(--sub);
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }}
+    .selected-designs strong {{
+      display: block;
+      color: #0f172a;
+      font-size: 18px;
+      line-height: 1.5;
+    }}
+    .selected-designs em {{
+      display: block;
+      margin-top: 8px;
+      color: var(--accent);
+      font-style: normal;
+      font-size: 13px;
+      font-weight: 850;
+      line-height: 1.55;
     }}
     .visual-principles {{
       display: grid;
@@ -1351,6 +1407,9 @@ def create_market_report(
       .design-pill {{
         width: 100%;
         justify-content: center;
+      }}
+      .selected-designs {{
+        grid-template-columns: 1fr;
       }}
       .analysis-summary {{
         grid-template-columns: 1fr;

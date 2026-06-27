@@ -168,8 +168,8 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     output_dir = ensure_output_dir(context.task_id)
     chart_path = create_market_chart(context.task_id, context.task_config, raw_data, context.rules, output_dir)
     card_path = create_summary_card(context.task_id, context.task_config, summary, context.rules, output_dir)
-    create_market_report(context.task_id, context.task_config, summary, raw_data, SITE_DIR, card_path, chart_path)
     design_direction = build_design_direction(context.task_id, context.task_config, summary, raw_data)
+    create_market_report(context.task_id, context.task_config, summary, raw_data, SITE_DIR, card_path, chart_path, design_direction)
     write_design_handoff(SITE_DIR, design_direction)
 
     link = report_url()

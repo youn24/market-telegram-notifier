@@ -4,6 +4,101 @@ from pathlib import Path
 from typing import Any
 
 
+CANVA_CANDIDATES = [
+    {
+        "tier": "standard",
+        "name": "通常候補1: バランス型ダイジェスト",
+        "url": "https://www.canva.com/d/DPv9rzR6p93bfmm",
+        "best_for": "様子見や通常相場。読みやすさ優先。",
+    },
+    {
+        "tier": "standard",
+        "name": "通常候補2: 会話重視",
+        "url": "https://www.canva.com/d/_LTDdGyt_jlnU4l",
+        "best_for": "ガネーシャ先生とカワウソ君の説明を見せたい日。",
+    },
+    {
+        "tier": "standard",
+        "name": "通常候補3: 数字整理型",
+        "url": "https://www.canva.com/d/ssL7DU1R--8RFr7",
+        "best_for": "重要数字と要約を整理したい日。",
+    },
+    {
+        "tier": "standard",
+        "name": "通常候補4: シンプル通知型",
+        "url": "https://www.canva.com/d/WM559WOBLIjI0pL",
+        "best_for": "情報量を抑え、通知の見やすさを優先する日。",
+    },
+    {
+        "tier": "premium",
+        "name": "高品質候補1: 金融端末ダッシュボード",
+        "url": "https://www.canva.com/d/WfdrW_9rcAlytLo",
+        "best_for": "9:30や17:00など、チャートと判断ボードを強く見せたい日。",
+    },
+    {
+        "tier": "premium",
+        "name": "高品質候補2: 世界市場俯瞰",
+        "url": "https://www.canva.com/d/d0pP4f28Y06Wvh1",
+        "best_for": "7:00の全体マクロ、海外市場、金利、為替の俯瞰。",
+    },
+    {
+        "tier": "premium",
+        "name": "高品質候補3: リスク温度計",
+        "url": "https://www.canva.com/d/rPz8xzMjxn0xpIp",
+        "best_for": "VIX上昇、金利急変、警戒相場。",
+    },
+    {
+        "tier": "premium",
+        "name": "高品質候補4: 実戦シナリオ型",
+        "url": "https://www.canva.com/d/I-J0mE4bOJBYa4f",
+        "best_for": "強気/中立/警戒の3シナリオを見せたい日。",
+    },
+]
+
+
+ADOBE_CONCEPTS = [
+    {
+        "name": "Adobe候補A: Express用スマホ速報カード",
+        "best_for": "Telegramに貼る縦長カード。短い文と大きな数字を優先。",
+        "prompt": "Adobe Expressで1080x1920px。深いネイビー背景、半透明カード、円形の地合いスコア、横棒ランキング、重要数字カードを大きく配置。",
+    },
+    {
+        "name": "Adobe候補B: Illustrator用金融端末ボード",
+        "best_for": "ブラウザ版や高品質レポートの見本。グリッドとチャートが主役。",
+        "prompt": "Illustratorで金融端末風の情報ボード。12カラムグリッド、青い罫線、緑/赤の騰落表現、カードごとに十分な余白。",
+    },
+    {
+        "name": "Adobe候補C: Firefly用ヒーロー背景",
+        "best_for": "タイトル背景やヘッダー画像。文字なしの雰囲気づくり。",
+        "prompt": "Adobe Fireflyで文字なしの金融市場ヒーロー背景。深いネイビー、光るチャート線、世界市場を示す抽象グリッド、数字やロゴは入れない。",
+    },
+]
+
+
+def _candidate_index(task_id: str, tone: str, count: int) -> int:
+    seed = sum(ord(char) for char in f"{task_id}:{tone}")
+    return seed % max(1, count)
+
+
+def _select_canva_candidate(task_id: str, task_config: dict[str, Any], tone: str) -> dict[str, str]:
+    use_premium = (
+        task_config.get("focus") == "macro"
+        or task_id in {"japan_morning", "japan_close"}
+        or tone in {"bull", "bear"}
+    )
+    tier = "premium" if use_premium else "standard"
+    candidates = [candidate for candidate in CANVA_CANDIDATES if candidate["tier"] == tier]
+    return candidates[_candidate_index(task_id, tone, len(candidates))]
+
+
+def _select_adobe_concept(task_id: str, tone: str) -> dict[str, str]:
+    if "morning" in task_id or task_id == "fx_morning":
+        return ADOBE_CONCEPTS[2]
+    if tone == "bear":
+        return ADOBE_CONCEPTS[0]
+    return ADOBE_CONCEPTS[1]
+
+
 def _tone_direction(tone: str) -> dict[str, str]:
     directions = {
         "bull": {
@@ -37,6 +132,8 @@ def build_design_direction(
     tone = summary.get("market_tone", "neutral")
     direction = _tone_direction(tone)
     title = task_config.get("title", task_id)
+    canva_candidate = _select_canva_candidate(task_id, task_config, tone)
+    adobe_concept = _select_adobe_concept(task_id, tone)
 
     macro_labels = ", ".join(item.get("label", "") for item in raw_data.get("macro_items", [])[:4]) or "macro indicators"
     market_labels = ", ".join(item.get("label", "") for item in raw_data.get("items", [])[:6]) or "market indicators"
@@ -84,6 +181,13 @@ def build_design_direction(
         "image_prompt": image_prompt,
         "canva_prompt": canva_prompt,
         "adobe_prompt": adobe_prompt,
+        "canva_candidate_name": canva_candidate["name"],
+        "canva_candidate_url": canva_candidate["url"],
+        "canva_candidate_tier": canva_candidate["tier"],
+        "canva_candidate_reason": canva_candidate["best_for"],
+        "adobe_concept_name": adobe_concept["name"],
+        "adobe_concept_reason": adobe_concept["best_for"],
+        "adobe_concept_prompt": adobe_concept["prompt"],
         "palette": direction["palette"],
         "mood": direction["mood"],
     }
@@ -92,6 +196,14 @@ def build_design_direction(
 def write_design_handoff(site_dir: Path, direction: dict[str, str]) -> None:
     site_dir.mkdir(parents=True, exist_ok=True)
     brief_path = site_dir / "design-brief.md"
+    canva_list = [
+        f"- [{candidate['name']}]({candidate['url']}) / {candidate['tier']} / {candidate['best_for']}"
+        for candidate in CANVA_CANDIDATES
+    ]
+    adobe_list = [
+        f"- {concept['name']}: {concept['best_for']} / {concept['prompt']}"
+        for concept in ADOBE_CONCEPTS
+    ]
     brief_path.write_text(
         "\n".join(
             [
@@ -99,6 +211,27 @@ def write_design_handoff(site_dir: Path, direction: dict[str, str]) -> None:
                 "",
                 "このファイルは、Canva / Adobe / 画像生成AIへ渡すためのデザイン指示書です。",
                 "通知本文の数字は実データのみを使い、未取得データは未確認として扱います。",
+                "",
+                "## Selected Canva Candidate",
+                "",
+                f"- Name: {direction['canva_candidate_name']}",
+                f"- Tier: {direction['canva_candidate_tier']}",
+                f"- URL: {direction['canva_candidate_url']}",
+                f"- Use when: {direction['canva_candidate_reason']}",
+                "",
+                "## Selected Adobe Concept",
+                "",
+                f"- Name: {direction['adobe_concept_name']}",
+                f"- Use when: {direction['adobe_concept_reason']}",
+                f"- Prompt: {direction['adobe_concept_prompt']}",
+                "",
+                "## All Canva Candidates",
+                "",
+                *canva_list,
+                "",
+                "## All Adobe Concepts",
+                "",
+                *adobe_list,
                 "",
                 "## Canva Prompt",
                 "",
