@@ -186,13 +186,14 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     student_line = clip_message_text(summary.get("dialogue", [{}])[0].get("text", ""), 70)
     analysis_lines = clean_analysis_lines(summary.get("ai_summary") or summary.get("deep_summary_lines", []))
     analysis_block = "\n".join(f"- {line}" for line in analysis_lines)
+    analysis_title = "取得データ限定AI分析" if summary.get("ai_summary") else "取得データ要約"
 
     message_parts = [
         f"【{title}】",
         f"配信日時: {summary['generated_at']}",
         headline,
         "",
-        "AI分析",
+        analysis_title,
         analysis_block or f"- {teacher_line}",
         "",
         f"ガネーシャ先生: {teacher_line}",

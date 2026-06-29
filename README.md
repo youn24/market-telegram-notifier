@@ -150,6 +150,7 @@ Gemini / OpenAI を使う場合も、トークン消費を抑えるために通�
 - `AI_SUMMARY_MAX_OUTPUT_TOKENS`: AIの出力上限です。初期値は `360` です。
 - `AI_SUMMARY_TEMPERATURE`: 分析のブレを抑える設定です。初期値は `0.2` です。
 - `AI_SUMMARY_DETAIL`: `true` にすると詳細根拠も多めに渡します。通常は `false` 推奨です。
+- `STRICT_FACTS_ONLY`: `true` の場合、AIが入力データにない数字や断定表現を出したら、そのAI要約は通知に採用しません。初期値は `true` です。
 
 `--dry-run` はテスト用なので、初期設定ではGemini/OpenAIを呼びません。これにより、動作確認だけでトークンを消費することを防ぎます。
 

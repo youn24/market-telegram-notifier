@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any
 
 import requests
@@ -49,6 +50,63 @@ def _trim_prompt(prompt: str) -> str:
     return prompt[: max_chars - 80].rstrip() + "\n[入力節約のためここで省略]"
 
 
+def _strict_facts_only() -> bool:
+    value = os.getenv("STRICT_FACTS_ONLY", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _numeric_tokens(text: str) -> set[str]:
+    tokens = re.findall(r"[-+]?\d+(?:,\d{3})*(?:\.\d+)?%?", text)
+    return {token.replace(",", "") for token in tokens}
+
+
+def _summary_evidence_text(summary: dict[str, Any]) -> str:
+    keys = [
+        "conclusion_label",
+        "conclusion_text",
+        "trade_checklist",
+        "commentary",
+        "macro_metrics",
+        "market_metrics",
+        "metrics",
+        "signals",
+        "scenarios",
+        "research_confidence_line",
+        "research_coverage_lines",
+        "research_evidence_briefs",
+        "research_evidence_lines",
+        "research_theme_lines",
+        "research_lines",
+    ]
+    chunks: list[str] = []
+    for key in keys:
+        value = summary.get(key)
+        if isinstance(value, list):
+            chunks.extend(str(item) for item in value)
+        elif value:
+            chunks.append(str(value))
+    return "\n".join(chunks)
+
+
+def _is_fact_safe_ai_text(text: str, summary: dict[str, Any]) -> bool:
+    if not _strict_facts_only():
+        return True
+
+    evidence_numbers = _numeric_tokens(_summary_evidence_text(summary))
+    output_numbers = _numeric_tokens(text)
+    unknown_numbers = output_numbers - evidence_numbers
+    if unknown_numbers:
+        LOGGER.warning("AI要約を不採用にしました: 未提供の数字 %s", sorted(unknown_numbers))
+        return False
+
+    banned_phrases = ["必ず上がる", "必ず下がる", "確実に上がる", "確実に下がる", "断定できます"]
+    if any(phrase in text for phrase in banned_phrases):
+        LOGGER.warning("AI要約を不採用にしました: 断定表現を検出")
+        return False
+
+    return True
+
+
 def _build_prompt(summary: dict[str, Any]) -> str:
     include_detail = os.getenv("AI_SUMMARY_DETAIL", "").strip().lower() in {"1", "true", "yes"}
     prompt = "\n".join(
@@ -56,6 +114,9 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             "You are a Japanese financial market assistant for a day trader.",
             "Return the answer in natural Japanese only.",
             "Use only the compact evidence below. Do not invent numbers.",
+            "Strict facts-only mode: every number and every market claim must be supported by the supplied evidence.",
+            "If a cause, catalyst, schedule, position, earnings item, rating, or supply-demand item is not supplied, write 未確認.",
+            "Do not create price targets, probabilities, support/resistance levels, or exact times unless supplied.",
             "Do not reveal chain-of-thought. Output only the final concise analysis.",
             "Write exactly five short labeled lines.",
             "Line 1 must start with 結論:",
@@ -132,6 +193,8 @@ def _maybe_generate_gemini_summary(summary: dict[str, Any]) -> str | None:
 
         parts = candidates[0].get("content", {}).get("parts", [])
         text = "\n".join(part.get("text", "").strip() for part in parts if part.get("text", "").strip()).strip()
+        if text and not _is_fact_safe_ai_text(text, summary):
+            return None
         return text or None
     except Exception as exc:
         LOGGER.warning("Gemini要約をスキップしました: %s", exc)
@@ -164,6 +227,8 @@ def _maybe_generate_openai_summary(summary: dict[str, Any]) -> str | None:
         response.raise_for_status()
         payload = response.json()
         text = payload.get("output_text", "").strip()
+        if text and not _is_fact_safe_ai_text(text, summary):
+            return None
         return text or None
     except Exception as exc:
         LOGGER.warning("OpenAI要約をスキップしました: %s", exc)
