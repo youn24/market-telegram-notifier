@@ -97,9 +97,9 @@ python src/main.py --task japan_close
 
 `.env` に Telegram の値を入れていない場合、送信はスキップされ、内容だけログに出ます。
 
-Telegram通知は、初期設定では1回につき短いテキスト1通だけです。細かいチャート、グラフ、分析、根拠は通知内の `詳細はこちら` リンクからブラウザ版レポートで確認します。
+Telegram通知は、初期設定では1回につき「タイトル・イラスト入り画像1枚」と短いキャプションだけです。細かいチャート、グラフ、分析、根拠は通知内の `詳細はこちら` リンクからブラウザ版レポートで確認します。
 
-画像を1枚だけ添付したい場合は、`.env` または GitHub Secrets / Variables 側で `TELEGRAM_ATTACH_IMAGE=true` にしてください。複数画像は送らず、最大1枚だけ送ります。
+画像を付けたくない場合は、`.env` または GitHub Variables 側で `TELEGRAM_ATTACH_IMAGE=false` にしてください。複数画像は送らず、最大1枚だけ送ります。
 
 ## 6. tasks.yaml の使い方
 

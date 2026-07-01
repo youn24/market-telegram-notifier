@@ -155,7 +155,7 @@ def should_use_ai_summary(dry_run: bool) -> bool:
 
 
 def should_attach_telegram_image() -> bool:
-    return env_flag("TELEGRAM_ATTACH_IMAGE", False)
+    return env_flag("TELEGRAM_ATTACH_IMAGE", True)
 
 
 def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, list[Path], dict[str, Any]]:
