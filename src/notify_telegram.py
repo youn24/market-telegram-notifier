@@ -20,8 +20,9 @@ def send_telegram_notification(
 ) -> None:
     base_url = f"https://api.telegram.org/bot{bot_token}"
     images = [path for path in image_paths if path.exists()]
+    first_image = images[0] if images else None
 
-    if not images:
+    if first_image is None:
         message_response = requests.post(
             f"{base_url}/sendMessage",
             data={
@@ -33,15 +34,14 @@ def send_telegram_notification(
         _raise_for_status(message_response)
         return
 
-    for index, image_path in enumerate(images):
-        data = {"chat_id": chat_id}
-        if index == 0:
-            data["caption"] = text[:1024]
-        with image_path.open("rb") as image_file:
-            photo_response = requests.post(
-                f"{base_url}/sendPhoto",
-                data=data,
-                files={"photo": image_file},
-                timeout=60,
-            )
-        _raise_for_status(photo_response)
+    with first_image.open("rb") as image_file:
+        photo_response = requests.post(
+            f"{base_url}/sendPhoto",
+            data={
+                "chat_id": chat_id,
+                "caption": text[:1024],
+            },
+            files={"photo": image_file},
+            timeout=60,
+        )
+    _raise_for_status(photo_response)

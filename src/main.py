@@ -154,6 +154,10 @@ def should_use_ai_summary(dry_run: bool) -> bool:
     return True
 
 
+def should_attach_telegram_image() -> bool:
+    return env_flag("TELEGRAM_ATTACH_IMAGE", False)
+
+
 def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, list[Path], dict[str, Any]]:
     raw_data = fetch_task_data(context)
     raw_data["research"] = fetch_research_snapshot(context.task_id, context.task_config, context.sources)
@@ -183,29 +187,21 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。"),
         90,
     )
-    student_line = clip_message_text(summary.get("dialogue", [{}])[0].get("text", ""), 70)
-    analysis_lines = clean_analysis_lines(summary.get("ai_summary") or summary.get("deep_summary_lines", []))
-    analysis_block = "\n".join(f"- {line}" for line in analysis_lines)
-    analysis_title = "取得データ限定AI分析" if summary.get("ai_summary") else "取得データ要約"
-
     message_parts = [
         f"【{title}】",
         f"配信日時: {summary['generated_at']}",
         headline,
         "",
-        analysis_title,
-        analysis_block or f"- {teacher_line}",
-        "",
-        f"ガネーシャ先生: {teacher_line}",
+        f"要点: {teacher_line}",
     ]
-    if student_line:
-        message_parts.extend(["", f"カワウソくん: {student_line}"])
     if link:
-        message_parts.extend(["", f"レポート: {link}"])
+        message_parts.extend(["", f"詳細はこちら: {link}"])
+    else:
+        message_parts.extend(["", "詳細レポートURL: 未確認"])
 
     text = "\n".join(message_parts)
 
-    images = [path for path in [card_path, chart_path] if path is not None and path.exists()]
+    images = [card_path] if should_attach_telegram_image() and card_path is not None and card_path.exists() else []
     return text, images, raw_data
 
 
