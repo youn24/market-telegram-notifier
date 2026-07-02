@@ -494,7 +494,7 @@ def _draw_dark_header(
 ) -> None:
     title = str(task_config.get("title", "相場チェック"))
     _draw_header_icon(draw, x + 24, y + 24, palette, "7:00" in title or "朝" in title)
-    _draw_wrapped(draw, (x + 82, y + 20), title, _load_font(36, bold=True), "#f8fafc", width - 180, 2)
+    _draw_wrapped(draw, (x + 82, y + 20), title, _load_font(36, bold=True), "#f8fafc", width - 360, 2)
     draw.text((x + 82, y + 112), "直近6営業日比較（初日=100）", fill="#cbd5e1", font=_load_font(24, bold=True))
     draw.rounded_rectangle((x + width - 280, y + 104, x + width - 28, y + 146), radius=18, fill="#10243a", outline="#1e3a5f")
     draw.text((x + width - 250, y + 112), "表示を整理・補正済み", fill="#bfdbfe", font=_load_font(18, bold=True))
@@ -503,6 +503,42 @@ def _draw_dark_header(
     _draw_chip(draw, (x + 24, chip_y, x + 235, chip_y + 64), f"↗ 上昇 {up}", "#4ade80", "#0f2f22")
     _draw_chip(draw, (x + 255, chip_y, x + 466, chip_y + 64), f"↘ 下落 {down}", "#fb7185", "#33151f")
     _draw_chip(draw, (x + 486, chip_y, x + width - 28, chip_y + 64), f"★ {_headline_chip(summary, visual_items)}", "#60a5fa", "#0b2442")
+
+
+def _draw_priority_banner(
+    draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
+    palette: dict[str, str],
+    x: int,
+    y: int,
+    width: int,
+) -> None:
+    label = str(summary.get("conclusion_label", "様子見"))
+    conclusion = str(summary.get("conclusion_text", "取得できたデータのみで確認します。"))
+    dashboard = summary.get("analysis_dashboard", {})
+    score = dashboard.get("score")
+    score_text = f"{score}/100" if isinstance(score, int) else "未確認"
+    draw.rounded_rectangle(
+        (x, y, x + width, y + 96),
+        radius=24,
+        fill="#f8fafc",
+        outline=palette["accent"],
+        width=4,
+    )
+    draw.rounded_rectangle((x + 18, y + 18, x + 190, y + 78), radius=18, fill=palette["accent"])
+    draw.text((x + 46, y + 30), "最重要", fill="#ffffff", font=_load_font(28, bold=True))
+    draw.text((x + 214, y + 18), label, fill=palette["accent"], font=_load_font(34, bold=True))
+    line_font = _load_font(24, bold=True)
+    line = _shorten_text(draw, conclusion, line_font, width - 468, 1)[0]
+    draw.text((x + 214, y + 56), line, fill="#0f172a", font=line_font)
+    draw.rounded_rectangle((x + width - 216, y + 18, x + width - 24, y + 78), radius=18, fill="#0b1624", outline="#334155", width=2)
+    draw.text((x + width - 190, y + 29), f"地合い {score_text}", fill="#f8fafc", font=_load_font(23, bold=True))
+
+
+def _paste_dark_characters(canvas: Image.Image, tone: str) -> None:
+    elephant_path, otter_path = _character_paths(tone)
+    _paste_character(canvas, elephant_path, (770, 80, 970, 278))
+    _paste_character(canvas, otter_path, (920, 132, 1060, 278))
 
 
 def _draw_dark_line_chart(
@@ -670,9 +706,11 @@ def create_summary_card(
 
     margin = 34
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
+    _paste_dark_characters(image, summary.get("market_tone", "neutral"))
     _draw_dark_header(draw, summary, task_config, visual_items, palette, 52, 54, width - 104)
-    _draw_dark_line_chart(draw, summary, 52, 330, width - 104, 620)
-    _draw_dark_bar_ranking(draw, visual_items, 52, 974, width - 104, 430)
+    _draw_priority_banner(draw, summary, palette, 52, 314, width - 104)
+    _draw_dark_line_chart(draw, summary, 52, 434, width - 104, 500)
+    _draw_dark_bar_ranking(draw, visual_items, 52, 958, width - 104, 430)
     _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
 
     footer_font = _load_font(16)

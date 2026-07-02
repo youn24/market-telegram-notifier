@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import logging
 import os
 import re
@@ -187,15 +188,20 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。"),
         90,
     )
+    title_text = html.escape(title)
+    headline_text = html.escape(headline)
+    generated_at_text = html.escape(str(summary["generated_at"]))
+    teacher_text = html.escape(teacher_line)
     message_parts = [
-        f"【{title}】",
-        f"配信日時: {summary['generated_at']}",
-        headline,
+        f"<b>{title_text}</b>",
+        f"配信日時: <code>{generated_at_text}</code>",
+        f"<b>{headline_text}</b>",
         "",
-        f"要点: {teacher_line}",
+        f"要点: {teacher_text}",
     ]
     if link:
-        message_parts.extend(["", f"詳細はこちら: {link}"])
+        safe_link = html.escape(link, quote=True)
+        message_parts.extend(["", f'<a href="{safe_link}">詳細はこちら</a>'])
     else:
         message_parts.extend(["", "詳細レポートURL: 未確認"])
 

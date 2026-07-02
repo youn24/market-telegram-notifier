@@ -28,6 +28,8 @@ def send_telegram_notification(
             data={
                 "chat_id": chat_id,
                 "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
             },
             timeout=30,
         )
@@ -40,6 +42,7 @@ def send_telegram_notification(
             data={
                 "chat_id": chat_id,
                 "caption": text[:1024],
+                "parse_mode": "HTML",
             },
             files={"photo": image_file},
             timeout=60,
