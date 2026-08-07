@@ -236,6 +236,26 @@ def _research_digest(raw_data: dict[str, Any]) -> str:
     return f"材料検索では{len(items)}件を確認。信頼度は{confidence_label}、最上位材料はscore {score}、主な出所は{'、'.join(source_names) or '未確認'}です。"
 
 
+def _nikkei225jp_lines(raw_data: dict[str, Any]) -> list[str]:
+    data = raw_data.get("nikkei225jp", {}) or {}
+    status = data.get("status")
+    if status != "ok":
+        return [str(data.get("note", "nikkei225jp.com参照は未確認です。"))]
+
+    lines = [str(data.get("note", "nikkei225jp.comを参照しました。"))]
+    links = data.get("content_links", [])[:5]
+    schedules = data.get("schedule_items", [])[:3]
+    if links:
+        labels = "、".join(str(item.get("label", "未確認")) for item in links)
+        lines.append(f"参照候補: {labels}")
+    if schedules:
+        schedule_text = "、".join(f"{item.get('date', '未確認')} {item.get('event', '未確認')}" for item in schedules)
+        lines.append(f"予定候補: {schedule_text}")
+    for note in data.get("watch_notes", [])[:2]:
+        lines.append(str(note))
+    return lines[:5]
+
+
 def _clip_analysis_text(text: str, max_chars: int = 60) -> str:
     cleaned = " ".join(str(text).split())
     if len(cleaned) <= max_chars:
@@ -853,6 +873,7 @@ def build_summary(
     research_coverage_lines = _research_coverage_lines(raw_data)
     research_evidence_lines = _research_evidence_lines(raw_data)
     research_evidence_briefs = _research_evidence_briefs(raw_data)
+    nikkei225jp_lines = _nikkei225jp_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
         {
@@ -914,6 +935,7 @@ def build_summary(
         "research_evidence_lines": research_evidence_lines,
         "research_evidence_briefs": research_evidence_briefs,
         "research_evidence_packs": raw_data.get("research", {}).get("evidence_packs", []),
+        "nikkei225jp_lines": nikkei225jp_lines,
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
     }

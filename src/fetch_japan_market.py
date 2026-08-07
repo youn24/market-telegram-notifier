@@ -6,6 +6,7 @@ import pandas as pd
 import yfinance as yf
 
 from fetch_macro import fetch_macro_snapshot
+from fetch_nikkei225jp import fetch_nikkei225jp_snapshot
 
 
 def _safe_pct_change(current: float | None, previous: float | None) -> float | None:
@@ -120,5 +121,6 @@ def fetch_japan_market_snapshot(
         "section": "japan_market",
         "items": items,
         "macro_items": fetch_macro_snapshot(task_config, sources),
+        "nikkei225jp": fetch_nikkei225jp_snapshot(sources),
         "highlights": highlights,
     }

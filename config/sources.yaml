@@ -91,6 +91,28 @@ macro:
       label: "2年10年スプレッド"
       unit: "%"
 
+nikkei225jp:
+  enabled: true
+  url: "https://nikkei225jp.com/"
+  timeout_seconds: 20
+  max_links: 14
+  max_schedule_items: 10
+  watch_keywords:
+    - "世界株価"
+    - "日経平均"
+    - "先物"
+    - "CFD"
+    - "ADR"
+    - "米国"
+    - "為替"
+    - "商品"
+    - "金利"
+    - "恐怖指数"
+    - "空売り"
+    - "信用"
+    - "決算"
+    - "スケジュール"
+
 research:
   provider: "google_news_rss"
   language: "ja-JP"

@@ -389,7 +389,56 @@ def _dark_palette(tone: str) -> dict[str, str]:
     return palettes.get(tone, palettes["neutral"])
 
 
-def _draw_dark_background(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+def _category_style(task_config: dict[str, Any]) -> dict[str, str]:
+    category = str(task_config.get("category", "japan_market"))
+    if task_config.get("focus") == "macro":
+        category = "macro"
+    styles = {
+        "macro": {
+            "kicker": "MACRO NOTE",
+            "label": "マクロ総覧",
+            "subtitle": "金利・為替・株・商品を一枚で俯瞰",
+            "accent": "#38bdf8",
+            "accent2": "#facc15",
+            "fill": "#082f49",
+            "rail": "GLOBAL / RATES / FX",
+            "signal_label": "俯瞰軸",
+        },
+        "japan_market": {
+            "kicker": "TOKYO BOARD",
+            "label": "日本株",
+            "subtitle": "寄り付き・大引け・需給の温度差を見る",
+            "accent": "#f97316",
+            "accent2": "#22c55e",
+            "fill": "#431407",
+            "rail": "NIKKEI / TOPIX / FLOW",
+            "signal_label": "注目軸",
+        },
+        "fx": {
+            "kicker": "FX LENS",
+            "label": "為替",
+            "subtitle": "通貨の強弱と金利差を短く確認",
+            "accent": "#a78bfa",
+            "accent2": "#2dd4bf",
+            "fill": "#2e1065",
+            "rail": "USD / JPY / RATES",
+            "signal_label": "為替軸",
+        },
+        "earnings": {
+            "kicker": "EARNINGS",
+            "label": "決算",
+            "subtitle": "業績・ガイダンス・市場反応を整理",
+            "accent": "#f43f5e",
+            "accent2": "#fbbf24",
+            "fill": "#4c0519",
+            "rail": "RESULTS / GUIDANCE",
+            "signal_label": "決算軸",
+        },
+    }
+    return styles.get(category, styles["japan_market"])
+
+
+def _draw_dark_background(draw: ImageDraw.ImageDraw, width: int, height: int, category_style: dict[str, str]) -> None:
     draw.rectangle((0, 0, width, height), fill="#030712")
     for y in range(height):
         if y % 3 != 0:
@@ -403,6 +452,9 @@ def _draw_dark_background(draw: ImageDraw.ImageDraw, width: int, height: int) ->
         (970, 1760, 190, "#1e1b4b"),
     ]:
         draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+    draw.rectangle((0, 0, 18, height), fill=category_style["accent"])
+    for y in range(88, height, 210):
+        draw.line((28, y, 28, y + 96), fill=category_style["accent2"], width=4)
 
 
 def _draw_panel(
@@ -488,18 +540,22 @@ def _draw_dark_header(
     task_config: dict[str, Any],
     visual_items: list[dict[str, Any]],
     palette: dict[str, str],
+    category_style: dict[str, str],
     x: int,
     y: int,
     width: int,
 ) -> None:
     title = str(task_config.get("title", "相場チェック"))
     _draw_header_icon(draw, x + 24, y + 24, palette, "7:00" in title or "朝" in title)
-    _draw_wrapped(draw, (x + 82, y + 20), title, _load_font(36, bold=True), "#f8fafc", width - 360, 2)
-    draw.text((x + 82, y + 112), "直近6営業日比較（初日=100）", fill="#cbd5e1", font=_load_font(24, bold=True))
-    draw.rounded_rectangle((x + width - 280, y + 104, x + width - 28, y + 146), radius=18, fill="#10243a", outline="#1e3a5f")
-    draw.text((x + width - 250, y + 112), "表示を整理・補正済み", fill="#bfdbfe", font=_load_font(18, bold=True))
+    draw.rounded_rectangle((x + 82, y + 16, x + 312, y + 52), radius=14, fill=category_style["fill"], outline=category_style["accent"], width=2)
+    draw.text((x + 102, y + 23), category_style["kicker"], fill=category_style["accent2"], font=_load_font(19, bold=True))
+    draw.text((x + width - 258, y + 22), category_style["rail"], fill=category_style["accent"], font=_load_font(18, bold=True))
+    _draw_wrapped(draw, (x + 82, y + 62), title, _load_font(34, bold=True), "#f8fafc", width - 360, 2)
+    draw.text((x + 82, y + 154), category_style["subtitle"], fill="#dbeafe", font=_load_font(22, bold=True))
+    draw.rounded_rectangle((x + width - 280, y + 112, x + width - 28, y + 154), radius=18, fill="#10243a", outline=category_style["accent"])
+    draw.text((x + width - 250, y + 120), category_style["label"], fill=category_style["accent2"], font=_load_font(20, bold=True))
     up, down = _trend_counts(visual_items)
-    chip_y = y + 172
+    chip_y = y + 190
     _draw_chip(draw, (x + 24, chip_y, x + 235, chip_y + 64), f"↗ 上昇 {up}", "#4ade80", "#0f2f22")
     _draw_chip(draw, (x + 255, chip_y, x + 466, chip_y + 64), f"↘ 下落 {down}", "#fb7185", "#33151f")
     _draw_chip(draw, (x + 486, chip_y, x + width - 28, chip_y + 64), f"★ {_headline_chip(summary, visual_items)}", "#60a5fa", "#0b2442")
@@ -509,6 +565,7 @@ def _draw_priority_banner(
     draw: ImageDraw.ImageDraw,
     summary: dict[str, Any],
     palette: dict[str, str],
+    category_style: dict[str, str],
     x: int,
     y: int,
     width: int,
@@ -525,8 +582,8 @@ def _draw_priority_banner(
         outline=palette["accent"],
         width=4,
     )
-    draw.rounded_rectangle((x + 18, y + 18, x + 190, y + 78), radius=18, fill=palette["accent"])
-    draw.text((x + 46, y + 30), "最重要", fill="#ffffff", font=_load_font(28, bold=True))
+    draw.rounded_rectangle((x + 18, y + 18, x + 190, y + 78), radius=18, fill=category_style["fill"], outline=category_style["accent"], width=2)
+    draw.text((x + 42, y + 30), category_style["signal_label"], fill=category_style["accent2"], font=_load_font(27, bold=True))
     draw.text((x + 214, y + 18), label, fill=palette["accent"], font=_load_font(34, bold=True))
     line_font = _load_font(24, bold=True)
     line = _shorten_text(draw, conclusion, line_font, width - 468, 1)[0]
@@ -699,22 +756,23 @@ def create_summary_card(
     height = int(rules.get("common", {}).get("card_height", 1920))
     image = Image.new("RGBA", (width, height), "#030712")
     draw = ImageDraw.Draw(image)
-    _draw_dark_background(draw, width, height)
 
     palette = _dark_palette(summary.get("market_tone", "neutral"))
+    category_style = _category_style(task_config)
+    _draw_dark_background(draw, width, height, category_style)
     visual_items = summary.get("visual_items", [])
 
     margin = 34
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
     _paste_dark_characters(image, summary.get("market_tone", "neutral"))
-    _draw_dark_header(draw, summary, task_config, visual_items, palette, 52, 54, width - 104)
-    _draw_priority_banner(draw, summary, palette, 52, 314, width - 104)
+    _draw_dark_header(draw, summary, task_config, visual_items, palette, category_style, 52, 54, width - 104)
+    _draw_priority_banner(draw, summary, palette, category_style, 52, 314, width - 104)
     _draw_dark_line_chart(draw, summary, 52, 434, width - 104, 500)
     _draw_dark_bar_ranking(draw, visual_items, 52, 958, width - 104, 430)
     _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
 
     footer_font = _load_font(16)
-    footer = "数値は取得できたデータのみ使用。取得不能な情報は未確認。詳細はブラウザ版レポートへ。"
+    footer = f"{category_style['label']} | 数値は取得できたデータのみ使用。取得不能な情報は未確認。詳細はブラウザ版レポートへ。"
     draw.text((72, height - 70), footer, fill="#94a3b8", font=footer_font)
     draw.text((72, height - 44), f"生成時刻: {summary['generated_at']}", fill="#64748b", font=_load_font(14))
 

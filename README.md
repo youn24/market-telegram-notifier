@@ -86,6 +86,9 @@ OpenAI / Gemini を後で使う場合だけ、必要になったタイミング�
 ### Windows PowerShell
 
 ```powershell
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -223,10 +226,14 @@ Adobeは現在この環境から直接デザイン生成するツールがない
   - `pip install -r requirements.txt` が未実行の可能性があります
 - GitHub Actions では動くがローカルで送れない
   - `.env` の設定が未入力の可能性があります
+- PowerShell で日本語が文字化けして見える
+  - 実行前に `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` を設定してください
+  - ファイルは UTF-8 前提です。エディタ側も UTF-8 で開いてください
 
 ## データソース
 
 - 世界株・為替・商品・海外指数: `yfinance`
+- nikkei225jp.com: 公開ページで確認できる世界株価、日経225先物/CFD、ADR、米国主要指数、SOX、VIX、為替、金利、商品、経済スケジュールなどの参照リンクと確認観点を詳細レポートに表示します。リアルタイム数値は取得済みデータで確認できたものだけ使い、確認できない値は `未確認` とします。
 - 通知送信: Telegram Bot API
 
 詳細設定は次を参照してください。

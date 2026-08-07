@@ -34,6 +34,51 @@ def _market_label(tone: str) -> tuple[str, str]:
     return mapping.get(tone, mapping["neutral"])
 
 
+def _category_style(task_config: dict[str, Any]) -> dict[str, str]:
+    category = str(task_config.get("category", "japan_market"))
+    if task_config.get("focus") == "macro":
+        category = "macro"
+    styles = {
+        "macro": {
+            "class": "macro",
+            "kicker": "MACRO NOTE",
+            "label": "マクロ総覧",
+            "subtitle": "金利・為替・株・商品を一枚で俯瞰",
+            "accent": "#0284c7",
+            "accent2": "#ca8a04",
+            "soft": "#e0f2fe",
+        },
+        "japan_market": {
+            "class": "japan",
+            "kicker": "TOKYO BOARD",
+            "label": "日本株",
+            "subtitle": "寄り付き・大引け・需給の温度差を見る",
+            "accent": "#ea580c",
+            "accent2": "#16a34a",
+            "soft": "#fff7ed",
+        },
+        "fx": {
+            "class": "fx",
+            "kicker": "FX LENS",
+            "label": "為替",
+            "subtitle": "通貨の強弱と金利差を短く確認",
+            "accent": "#7c3aed",
+            "accent2": "#0d9488",
+            "soft": "#f5f3ff",
+        },
+        "earnings": {
+            "class": "earnings",
+            "kicker": "EARNINGS",
+            "label": "決算",
+            "subtitle": "業績・ガイダンス・市場反応を整理",
+            "accent": "#e11d48",
+            "accent2": "#d97706",
+            "soft": "#fff1f2",
+        },
+    }
+    return styles.get(category, styles["japan_market"])
+
+
 def _render_list(items: list[str], css_class: str) -> str:
     blocks: list[str] = []
     for item in items:
@@ -191,15 +236,75 @@ def _render_digest_tiles(summary: dict[str, Any], raw_data: dict[str, Any]) -> s
     macro_count = len([item for item in raw_data.get("macro_items", []) if item.get("status") == "ok"])
     market_count = len([item for item in raw_data.get("items", []) if item.get("status") == "ok"])
     research_count = len(raw_data.get("research", {}).get("items", []))
+    nikkei_status = raw_data.get("nikkei225jp", {}).get("status")
     tiles = [
         ("結論", summary.get("conclusion_label", "様子見"), "tile-accent"),
         ("取得済み", f"市場 {market_count} / マクロ {macro_count}", "tile-blue"),
         ("材料検索", f"{research_count}件" if research_count else "未確認", "tile-green"),
+        ("225参照", "確認済み" if nikkei_status == "ok" else "未確認", "tile-blue"),
         ("作戦", "3シナリオで確認", "tile-gold"),
     ]
     return "\n".join(
         f'<div class="digest-tile {klass}"><span>{_safe(label)}</span><strong>{_safe(value)}</strong></div>'
         for label, value, klass in tiles
+    )
+
+
+def _render_nikkei225jp_reference(raw_data: dict[str, Any]) -> str:
+    data = raw_data.get("nikkei225jp", {}) or {}
+    status = data.get("status")
+    source_url = _safe(str(data.get("url", "https://nikkei225jp.com/")))
+    fetched_at = _safe(str(data.get("fetched_at", "未確認")))
+    note = _safe(str(data.get("note", "nikkei225jp.com参照は未確認です。")))
+
+    if status != "ok":
+        return "\n".join(
+            [
+                '<div class="nikkei-reference unavailable">',
+                "  <h3>nikkei225jp.com参照</h3>",
+                f"  <p>{note}</p>",
+                f'  <a href="{source_url}" target="_blank" rel="noopener">nikkei225jp.comを開く</a>',
+                "</div>",
+            ]
+        )
+
+    links = data.get("content_links", [])[:14]
+    schedules = data.get("schedule_items", [])[:10]
+    notes = data.get("watch_notes", [])[:4]
+
+    link_html = "\n".join(
+        f'<a href="{_safe(str(item.get("url", "")))}" target="_blank" rel="noopener">{_safe(str(item.get("label", "未確認")))}</a>'
+        for item in links
+    ) or '<span class="nikkei-empty">参照リンクは未確認</span>'
+    schedule_html = "\n".join(
+        f'<li><strong>{_safe(str(item.get("date", "未確認")))}</strong><span>{_safe(str(item.get("event", "未確認")))}</span></li>'
+        for item in schedules
+    ) or '<li><strong>未確認</strong><span>経済スケジュールは取得できませんでした。</span></li>'
+    note_html = "\n".join(f"<li>{_safe(str(note_item))}</li>" for note_item in notes)
+
+    return "\n".join(
+        [
+            '<div class="nikkei-reference">',
+            "  <div>",
+            "    <h3>nikkei225jp.com参照</h3>",
+            f"    <p>{note}</p>",
+            f"    <small>参照時刻: {fetched_at}</small>",
+            "  </div>",
+            '  <div class="nikkei-link-grid">',
+            link_html,
+            "  </div>",
+            '  <div class="nikkei-watch-grid">',
+            "    <article>",
+            "      <h4>時間外チェック</h4>",
+            f"      <ul>{note_html}</ul>",
+            "    </article>",
+            "    <article>",
+            "      <h4>スケジュール候補</h4>",
+            f"      <ul>{schedule_html}</ul>",
+            "    </article>",
+            "  </div>",
+            "</div>",
+        ]
     )
 
 
@@ -516,6 +621,7 @@ def create_market_report(
     copied_otter = _copy_if_exists(otter_source, assets_dir / "kawauso-kun.png")
 
     market_label, market_color = _market_label(summary.get("market_tone", "neutral"))
+    category_style = _category_style(task_config)
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
     world_board_html = _render_world_board(raw_data)
     chart_board_html = _render_chart_board(raw_data)
@@ -535,6 +641,7 @@ def create_market_report(
     hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
     research_html = _render_research_cards(summary)
+    nikkei225jp_html = _render_nikkei225jp_reference(raw_data)
     design_direction = design_direction or {}
     selected_canva_name = _safe(str(design_direction.get("canva_candidate_name", "Canva候補はdesign-brief.mdで確認")))
     selected_canva_url = _safe(str(design_direction.get("canva_candidate_url", "design-brief.md")))
@@ -603,6 +710,9 @@ def create_market_report(
       --text: #111827;
       --sub: #475569;
       --accent: {market_color};
+      --category: {category_style["accent"]};
+      --category-2: {category_style["accent2"]};
+      --category-soft: {category_style["soft"]};
       --good: #166534;
       --bad: #991b1b;
       --soft-blue: #eef7ff;
@@ -639,9 +749,20 @@ def create_market_report(
       overflow: hidden;
       color: var(--text);
       background:
-        linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, white), #ffffff 54%),
+        linear-gradient(135deg, color-mix(in srgb, var(--category) 13%, white), #ffffff 54%),
         {hero_background};
-      border-left: 10px solid var(--accent);
+      border-left: 10px solid var(--category);
+    }}
+    .hero::after {{
+      content: "{_safe(category_style["kicker"])}";
+      position: absolute;
+      right: 18px;
+      top: 14px;
+      color: color-mix(in srgb, var(--category) 20%, transparent);
+      font-size: clamp(34px, 8vw, 84px);
+      font-weight: 1000;
+      line-height: 1;
+      pointer-events: none;
     }}
     .hero > * {{
       position: relative;
@@ -727,15 +848,51 @@ def create_market_report(
     }}
     .eyebrow {{
       font-size: 14px;
-      color: var(--sub);
+      color: var(--category);
       margin-bottom: 6px;
       font-weight: 900;
       letter-spacing: .04em;
+    }}
+    .category-ribbon {{
+      display: inline-grid;
+      grid-template-columns: auto auto;
+      gap: 8px 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px 11px;
+      border: 1px solid color-mix(in srgb, var(--category) 46%, var(--line));
+      border-left: 7px solid var(--category);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--category-soft) 74%, white);
+      box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--category) 18%, transparent);
+    }}
+    .category-ribbon span {{
+      color: var(--category);
+      font-size: 12px;
+      font-weight: 1000;
+      letter-spacing: .08em;
+    }}
+    .category-ribbon strong {{
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 1000;
+      line-height: 1.1;
+    }}
+    .category-ribbon em {{
+      grid-column: 1 / -1;
+      color: #334155;
+      font-style: normal;
+      font-size: 13px;
+      font-weight: 850;
     }}
     h1 {{
       font-size: clamp(28px, 4vw, 42px);
       line-height: 1.25;
       margin: 0 0 12px;
+      text-decoration: underline;
+      text-decoration-color: color-mix(in srgb, var(--category) 38%, transparent);
+      text-decoration-thickness: 6px;
+      text-underline-offset: 7px;
     }}
     .theme {{
       font-size: 17px;
@@ -1602,6 +1759,82 @@ def create_market_report(
       font-weight: 700;
       margin-top: 4px;
     }}
+    .nikkei-reference {{
+      border: 1px solid #bfdbfe;
+      border-left: 8px solid #0284c7;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #f8fbff, #eef7ff);
+      padding: 20px;
+      display: grid;
+      gap: 18px;
+    }}
+    .nikkei-reference.unavailable {{
+      border-left-color: #94a3b8;
+      background: #f8fafc;
+    }}
+    .nikkei-reference h3,
+    .nikkei-reference h4 {{
+      margin: 0 0 8px;
+      color: #0f172a;
+      font-weight: 1000;
+    }}
+    .nikkei-reference p {{
+      margin: 0 0 8px;
+      color: #334155;
+      font-weight: 800;
+      line-height: 1.6;
+    }}
+    .nikkei-reference small {{
+      color: #64748b;
+      font-weight: 800;
+    }}
+    .nikkei-link-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }}
+    .nikkei-link-grid a,
+    .nikkei-reference > a {{
+      color: #075985;
+      background: #ffffff;
+      border: 1px solid #bae6fd;
+      border-radius: 999px;
+      padding: 9px 11px;
+      text-decoration: none;
+      font-weight: 900;
+      font-size: 13px;
+    }}
+    .nikkei-watch-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }}
+    .nikkei-watch-grid article {{
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 14px;
+    }}
+    .nikkei-watch-grid ul {{
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+      font-weight: 750;
+      line-height: 1.55;
+    }}
+    .nikkei-watch-grid li + li {{
+      margin-top: 7px;
+    }}
+    .nikkei-watch-grid li strong {{
+      display: inline-block;
+      min-width: 58px;
+      color: #0f766e;
+      margin-right: 6px;
+    }}
+    .nikkei-empty {{
+      color: #64748b;
+      font-weight: 900;
+    }}
     .analysis-summary {{
       display: grid;
       grid-template-columns: 150px 1fr;
@@ -1846,11 +2079,16 @@ def create_market_report(
     }}
   </style>
 </head>
-<body>
+<body class="category-{_safe(category_style["class"])}">
   <main class="page">
     <section class="hero">
       <div class="hero-layout">
         <div>
+          <div class="category-ribbon">
+            <span>{_safe(category_style["kicker"])}</span>
+            <strong>{_safe(category_style["label"])}</strong>
+            <em>{_safe(category_style["subtitle"])}</em>
+          </div>
           <div class="eyebrow">{_safe(summary.get("theme_title", "本日のテーマ"))}</div>
           <h1>{_safe(task_config.get("title", task_id))}</h1>
           <div class="badge">{_safe(market_label)}</div>
@@ -1896,6 +2134,11 @@ def create_market_report(
       <div class="research-grid">
         {research_html}
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>nikkei225jp.com参照</h2>
+      {nikkei225jp_html}
     </section>
 
     <section class="panel">
