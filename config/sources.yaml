@@ -191,6 +191,10 @@ research:
     default:
       - "金融市場 今日 株 為替 金利"
 
+quality:
+  market_max_stale_days: 7
+  macro_max_stale_days: 14
+
 earnings:
   unavailable_items:
     analysis: "引け後決算分析は初期設定では未確認"

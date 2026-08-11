@@ -549,11 +549,13 @@ def _draw_dark_header(
     _draw_header_icon(draw, x + 24, y + 24, palette, "7:00" in title or "朝" in title)
     draw.rounded_rectangle((x + 82, y + 16, x + 312, y + 52), radius=14, fill=category_style["fill"], outline=category_style["accent"], width=2)
     draw.text((x + 102, y + 23), category_style["kicker"], fill=category_style["accent2"], font=_load_font(19, bold=True))
-    draw.text((x + width - 258, y + 22), category_style["rail"], fill=category_style["accent"], font=_load_font(18, bold=True))
-    _draw_wrapped(draw, (x + 82, y + 62), title, _load_font(34, bold=True), "#f8fafc", width - 360, 2)
+    quality = summary.get("data_quality", {})
+    quality_rail = f"{quality.get('badge', '確認済 0/0')}  |  {quality.get('as_of_label', '基準日 未確認').replace('最新基準日 ', '')}"
+    rail_font = _load_font(17, bold=True)
+    rail_x = x + width - _text_width(draw, quality_rail, rail_font) - 28
+    draw.text((rail_x, y + 22), quality_rail, fill=category_style["accent"], font=rail_font)
+    _draw_wrapped(draw, (x + 82, y + 62), title, _load_font(32, bold=True), "#f8fafc", width - 112, 2)
     draw.text((x + 82, y + 154), category_style["subtitle"], fill="#dbeafe", font=_load_font(22, bold=True))
-    draw.rounded_rectangle((x + width - 280, y + 112, x + width - 28, y + 154), radius=18, fill="#10243a", outline=category_style["accent"])
-    draw.text((x + width - 250, y + 120), category_style["label"], fill=category_style["accent2"], font=_load_font(20, bold=True))
     up, down = _trend_counts(visual_items)
     chip_y = y + 190
     _draw_chip(draw, (x + 24, chip_y, x + 235, chip_y + 64), f"↗ 上昇 {up}", "#4ade80", "#0f2f22")
@@ -589,13 +591,16 @@ def _draw_priority_banner(
     line = _shorten_text(draw, conclusion, line_font, width - 468, 1)[0]
     draw.text((x + 214, y + 56), line, fill="#0f172a", font=line_font)
     draw.rounded_rectangle((x + width - 216, y + 18, x + width - 24, y + 78), radius=18, fill="#0b1624", outline="#334155", width=2)
-    draw.text((x + width - 190, y + 29), f"地合い {score_text}", fill="#f8fafc", font=_load_font(23, bold=True))
+    quality = summary.get("data_quality", {})
+    quality_text = f"品質 {quality.get('verified', 0)}/{quality.get('total', 0)}"
+    draw.text((x + width - 190, y + 24), f"地合い {score_text}", fill="#f8fafc", font=_load_font(20, bold=True))
+    draw.text((x + width - 190, y + 50), quality_text, fill="#93c5fd", font=_load_font(17, bold=True))
 
 
 def _paste_dark_characters(canvas: Image.Image, tone: str) -> None:
     elephant_path, otter_path = _character_paths(tone)
-    _paste_character(canvas, elephant_path, (770, 80, 970, 278))
-    _paste_character(canvas, otter_path, (920, 132, 1060, 278))
+    _paste_character(canvas, elephant_path, (780, 1470, 938, 1648))
+    _paste_character(canvas, otter_path, (900, 1578, 1044, 1736))
 
 
 def _draw_dark_line_chart(
@@ -655,14 +660,19 @@ def _draw_dark_line_chart(
                 draw.ellipse((point[0] - 7, point[1] - 7, point[0] + 7, point[1] + 7), fill=color)
         legend_col = index % 2
         legend_row = index // 2
-        legend_x = x + 42 + legend_col * ((width - 84) // 2)
+        legend_col_width = (width - 84) // 2
+        legend_x = x + 42 + legend_col * legend_col_width
         legend_y = legend_y_base + legend_row * 34
         draw.rounded_rectangle((legend_x, legend_y + 7, legend_x + 34, legend_y + 17), radius=5, fill=color)
-        draw.text((legend_x + 46, legend_y - 2), str(item.get("label", "未確認"))[:11], fill="#f8fafc", font=_load_font(20, bold=True))
+        label_font = _load_font(18, bold=True)
+        change_font = _load_font(18, bold=True)
+        label = _shorten_text(draw, str(item.get("label", "未確認")), label_font, legend_col_width - 170, 1)[0]
+        draw.text((legend_x + 46, legend_y - 2), label, fill="#f8fafc", font=label_font)
         change = item.get("change_pct")
         change_text = "未確認" if change is None else f"{change:+.2f}%"
         change_color = "#4ade80" if isinstance(change, (int, float)) and change >= 0 else "#fb7185"
-        draw.text((legend_x + 178, legend_y - 2), change_text, fill=change_color, font=_load_font(19, bold=True))
+        change_x = legend_x + legend_col_width - _text_width(draw, change_text, change_font) - 12
+        draw.text((change_x, legend_y - 2), change_text, fill=change_color, font=change_font)
 
 
 def _draw_dark_bar_ranking(
@@ -673,11 +683,12 @@ def _draw_dark_bar_ranking(
     width: int,
     height: int,
 ) -> None:
-    _draw_panel(draw, (x, y, x + width, y + height), "前日比ランキング")
+    _draw_panel(draw, (x, y, x + width, y + height), "同種資産の前日比ランキング")
     ranked = [
         item
         for item in visual_items
-        if isinstance(item.get("change_pct"), (int, float))
+        if item.get("comparison_group", "market_return") == "market_return"
+        and isinstance(item.get("change_pct"), (int, float))
     ]
     ranked.sort(key=lambda item: float(item.get("change_pct", 0)), reverse=True)
     if not ranked:
@@ -721,27 +732,28 @@ def _draw_dark_memo(
     palette: dict[str, str],
 ) -> None:
     _draw_panel(draw, (x, y, x + width, y + height), None, palette["accent"])
-    draw.text((x + 28, y + 22), "AI 実戦メモ", fill=palette["accent2"], font=_load_font(34, bold=True))
-    comments = (
-        summary.get("trade_checklist")
-        or summary.get("ai_summary")
-        or summary.get("deep_summary_lines")
-        or summary.get("commentary", [])
-    )[:3]
-    if not comments:
-        comments = [summary.get("conclusion_text", "大きな偏りは未確認です。")]
+    draw.text((x + 28, y + 22), "ガネーシャ先生とカワウソ君の実戦メモ", fill=palette["accent2"], font=_load_font(31, bold=True))
+    dialogue = summary.get("dialogue", []) or []
+    student_text = next((str(item.get("text", "")) for item in dialogue if item.get("role") == "student"), "")
+    action = str(summary.get("analysis_dashboard", {}).get("action", "取得済みデータだけで判断します。"))
+    comments = [
+        f"先生: {summary.get('conclusion_text', '大きな偏りは未確認です。')}",
+        f"カワウソ: {student_text or '先生、いま最優先で見る数字はどれですか？'}",
+        f"実戦: {action}",
+    ]
     text_y = y + 82
+    text_right = x + width - 300
     for comment in comments[:3]:
-        draw.rounded_rectangle((x + 30, text_y - 8, x + width - 30, text_y + 34), radius=16, fill="#10243a", outline="#1e3a5f")
+        draw.rounded_rectangle((x + 30, text_y - 8, text_right, text_y + 34), radius=16, fill="#10243a", outline="#1e3a5f")
         draw.text((x + 48, text_y - 1), "•", fill="#f8fafc", font=_load_font(27, bold=True))
-        memo_font = _load_font(25, bold=True)
-        memo_line = _shorten_text(draw, comment, memo_font, width - 110, 1)[0]
+        memo_font = _load_font(21, bold=True)
+        memo_line = _shorten_text(draw, comment, memo_font, text_right - x - 92, 1)[0]
         draw.text((x + 82, text_y - 3), memo_line, fill="#f8fafc", font=memo_font)
         text_y += 49
     evidence = summary.get("research_evidence_briefs") or summary.get("research_evidence_lines", [])
     if evidence:
-        line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(18), width - 70, 1)[0]
-        draw.rounded_rectangle((x + 28, y + height - 54, x + width - 28, y + height - 18), radius=12, fill="#10243a", outline="#1e3a5f")
+        line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(17), text_right - x - 48, 1)[0]
+        draw.rounded_rectangle((x + 28, y + height - 54, text_right, y + height - 18), radius=12, fill="#10243a", outline="#1e3a5f")
         draw.text((x + 44, y + height - 48), line, fill="#bfdbfe", font=_load_font(18, bold=True))
 
 
@@ -764,12 +776,16 @@ def create_summary_card(
 
     margin = 34
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
-    _paste_dark_characters(image, summary.get("market_tone", "neutral"))
     _draw_dark_header(draw, summary, task_config, visual_items, palette, category_style, 52, 54, width - 104)
     _draw_priority_banner(draw, summary, palette, category_style, 52, 314, width - 104)
     _draw_dark_line_chart(draw, summary, 52, 434, width - 104, 500)
     _draw_dark_bar_ranking(draw, visual_items, 52, 958, width - 104, 430)
     _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
+    _paste_dark_characters(image, summary.get("market_tone", "neutral"))
+    draw.rounded_rectangle((780, 1452, 938, 1488), radius=14, fill="#3b2a06", outline="#fbbf24", width=2)
+    draw.text((802, 1459), "ガネーシャ先生", fill="#fde68a", font=_load_font(16, bold=True))
+    draw.rounded_rectangle((900, 1558, 1042, 1592), radius=14, fill="#0f2f22", outline="#4ade80", width=2)
+    draw.text((923, 1564), "カワウソ君", fill="#bbf7d0", font=_load_font(16, bold=True))
 
     footer_font = _load_font(16)
     footer = f"{category_style['label']} | 数値は取得できたデータのみ使用。取得不能な情報は未確認。詳細はブラウザ版レポートへ。"

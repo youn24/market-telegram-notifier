@@ -2,9 +2,7 @@ name: Japan Midday
 
 on:
   workflow_dispatch:
-  schedule:
-    # 12:00 JST（月〜金） = 03:00 UTC（月〜金）
-    - cron: "0 3 * * 1-5"
+  # config/tasks.yaml が enabled:false の間は定期実行しません。
 
 jobs:
   notify:

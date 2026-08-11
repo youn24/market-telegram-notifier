@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import requests
+
+
+JST = ZoneInfo("Asia/Tokyo")
+DEFAULT_MAX_STALE_DAYS = 14
 
 
 def _safe_float(value: str | None) -> float | None:
@@ -27,6 +33,8 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
         return []
 
     macro_sources = sources.get("macro", {}).get("fred_series", {})
+    quality_config = sources.get("quality", {}) or {}
+    max_stale_days = int(quality_config.get("macro_max_stale_days", DEFAULT_MAX_STALE_DAYS))
     items: list[dict[str, Any]] = []
 
     for series_key in task_config.get("macro_series", []):
@@ -66,7 +74,19 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
 
             current = usable[0]["value"]
             previous = usable[1]["value"]
+            as_of = str(usable[0].get("date", ""))
+            try:
+                stale_days = (datetime.now(JST).date() - datetime.fromisoformat(as_of).date()).days
+            except ValueError as exc:
+                raise ValueError("基準日を確認できません") from exc
+            if stale_days < 0:
+                raise ValueError("未来日付のデータを検出しました")
+            if stale_days > max_stale_days:
+                raise ValueError(f"データが古いため未確認です（基準日 {as_of}）")
+
             series = list(reversed(usable[:6]))
+            absolute_change = current - previous
+            is_rate = series_key in {"US10Y", "SOFR", "YIELD_2S10S"}
             items.append(
                 {
                     "key": series_key,
@@ -75,10 +95,17 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
                     "current": current,
                     "previous": previous,
                     "change_pct": _safe_pct_change(current, previous),
+                    "change_abs": absolute_change,
+                    "change_bps": absolute_change * 100 if is_rate else None,
                     "series": series,
                     "status": "ok",
                     "unit": meta.get("unit", ""),
                     "source": "FRED",
+                    "as_of": as_of,
+                    "stale_days": stale_days,
+                    "quality_status": "verified",
+                    "quality_notes": [f"基準日 {as_of}", "FRED公式系列"],
+                    "comparison_group": "rate_level" if is_rate else "risk_indicator",
                 }
             )
         except Exception as exc:
@@ -94,6 +121,9 @@ def fetch_macro_snapshot(task_config: dict[str, Any], sources: dict[str, Any]) -
                     "status": "unavailable",
                     "unit": meta.get("unit", ""),
                     "source": "FRED",
+                    "as_of": None,
+                    "quality_status": "unavailable",
+                    "comparison_group": "rate_level" if series_key in {"US10Y", "SOFR", "YIELD_2S10S"} else "risk_indicator",
                     "note": f"未確認: {exc}",
                 }
             )

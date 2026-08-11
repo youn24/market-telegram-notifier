@@ -501,6 +501,15 @@ def _numeric_change(item: dict[str, Any] | None) -> float | None:
     return None
 
 
+def _numeric_bps(item: dict[str, Any] | None) -> float | None:
+    if not item:
+        return None
+    value = item.get("change_bps")
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
 def _score_band(score: int) -> str:
     if score >= 70:
         return "攻め優位"
@@ -527,7 +536,7 @@ def _build_analysis_dashboard(raw_data: dict[str, Any], tone: str, thresholds: d
     dollar = _find_item(macro_items, "DOLLAR_BROAD")
     spread = _find_item(macro_items, "YIELD_2S10S")
     vix_change = _numeric_change(vix)
-    us10y_change = _numeric_change(us10y)
+    us10y_bps = _numeric_bps(us10y)
     dollar_change = _numeric_change(dollar)
 
     risk_points = 0
@@ -539,9 +548,9 @@ def _build_analysis_dashboard(raw_data: dict[str, Any], tone: str, thresholds: d
         elif vix_change <= -3:
             risk_points -= 10
             risk_reasons.append(f"VIXが{vix_change:+.2f}%で過度な警戒は後退")
-    if us10y_change is not None and us10y_change >= 1:
+    if us10y_bps is not None and us10y_bps >= 5:
         risk_points += 10
-        risk_reasons.append(f"米10年金利が{us10y_change:+.2f}%で株の重石に注意")
+        risk_reasons.append(f"米10年金利が{us10y_bps:+.1f}bpで株の重石に注意")
     if dollar_change is not None and dollar_change >= 0.5:
         risk_points += 6
         risk_reasons.append(f"ドル指数が{dollar_change:+.2f}%で外需・為替感応を確認")
@@ -613,7 +622,9 @@ def _format_item_line(item: dict[str, Any]) -> str:
 
 
 def _format_macro_line(item: dict[str, Any]) -> str:
-    return f"- {item['label']}: {_format_macro_value(item)} ({_format_pct(item.get('change_pct'))})"
+    change_bps = item.get("change_bps")
+    change_text = f"{change_bps:+.1f}bp" if isinstance(change_bps, (int, float)) else _format_pct(item.get("change_pct"))
+    return f"- {item['label']}: {_format_macro_value(item)} ({change_text})"
 
 
 def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -633,7 +644,15 @@ def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
                 "label": item.get("label", "未確認"),
                 "value": "未確認" if current is None else f"{current:,.2f}{unit}",
                 "change_pct": item.get("change_pct"),
-                "change_text": _format_pct(item.get("change_pct")),
+                "change_text": (
+                    f"{item.get('change_bps'):+.1f}bp"
+                    if isinstance(item.get("change_bps"), (int, float))
+                    else _format_pct(item.get("change_pct"))
+                ),
+                "comparison_group": item.get("comparison_group", "market_return"),
+                "as_of": item.get("as_of"),
+                "source": item.get("source", "未確認"),
+                "quality_status": item.get("quality_status", "unavailable"),
             }
         )
     return visual_items
@@ -657,11 +676,53 @@ def _build_sparkline_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
                 "label": item.get("label", "未確認"),
                 "series": series,
                 "change_pct": item.get("change_pct"),
+                "comparison_group": item.get("comparison_group", "market_return"),
+                "as_of": item.get("as_of"),
             }
         )
         if len(sparkline_items) >= 8:
             break
     return sparkline_items
+
+
+def _build_data_quality(raw_data: dict[str, Any]) -> dict[str, Any]:
+    source_items = raw_data.get("items", []) + raw_data.get("macro_items", [])
+    total = len(source_items)
+    verified_items = [
+        item
+        for item in source_items
+        if item.get("status") == "ok" and item.get("quality_status") == "verified"
+    ]
+    unavailable_items = [item for item in source_items if item not in verified_items]
+    dates = sorted(
+        str(item.get("as_of"))
+        for item in verified_items
+        if item.get("as_of")
+    )
+    coverage = round(len(verified_items) / total * 100) if total else 0
+    latest_as_of = dates[-1] if dates else None
+    oldest_as_of = dates[0] if dates else None
+    unavailable_labels = [str(item.get("label", "未確認")) for item in unavailable_items[:4]]
+
+    if coverage >= 90:
+        label = "高"
+    elif coverage >= 70:
+        label = "中"
+    else:
+        label = "要確認"
+
+    return {
+        "verified": len(verified_items),
+        "total": total,
+        "unavailable": len(unavailable_items),
+        "coverage": coverage,
+        "label": label,
+        "latest_as_of": latest_as_of,
+        "oldest_as_of": oldest_as_of,
+        "unavailable_labels": unavailable_labels,
+        "badge": f"確認済 {len(verified_items)}/{total}" if total else "確認済 0/0",
+        "as_of_label": f"最新基準日 {latest_as_of}" if latest_as_of else "基準日 未確認",
+    }
 
 
 def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
@@ -891,6 +952,7 @@ def build_summary(
     opportunities, cautions = _build_watchpoints(raw_data, thresholds)
     scenarios = _build_scenarios(raw_data, tone)
     analysis_dashboard = _build_analysis_dashboard(raw_data, tone, thresholds)
+    data_quality = _build_data_quality(raw_data)
     deep_summary_lines = _deep_summary_lines(
         raw_data,
         tone,
@@ -924,6 +986,7 @@ def build_summary(
         "cautions": cautions,
         "scenarios": scenarios,
         "analysis_dashboard": analysis_dashboard,
+        "data_quality": data_quality,
         "trade_checklist": analysis_dashboard["checklist"],
         "visual_items": _build_visual_items(raw_data),
         "sparkline_items": _build_sparkline_items(raw_data),

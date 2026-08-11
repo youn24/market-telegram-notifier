@@ -355,7 +355,11 @@ def _render_macro_cards(items: list[dict[str, Any]]) -> str:
     cards: list[str] = []
     for item in items:
         change = item.get("change_pct")
-        change_text = "未確認" if change is None else f"{change:+.2f}%"
+        change_bps = item.get("change_bps")
+        if isinstance(change_bps, (int, float)):
+            change_text = f"{change_bps:+.1f}bp"
+        else:
+            change_text = "未確認" if change is None else f"{change:+.2f}%"
         current = item.get("current")
         unit = item.get("unit", "")
         value_text = "未確認" if current is None else f"{current:,.2f}{unit}"
@@ -642,6 +646,15 @@ def create_market_report(
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
     research_html = _render_research_cards(summary)
     nikkei225jp_html = _render_nikkei225jp_reference(raw_data)
+    data_quality = summary.get("data_quality", {}) or {}
+    quality_unavailable = "、".join(data_quality.get("unavailable_labels", [])) or "なし"
+    data_quality_html = f"""
+      <div class="quality-strip">
+        <strong>{_safe(data_quality.get("badge", "確認済 0/0"))}</strong>
+        <span>{_safe(data_quality.get("as_of_label", "基準日 未確認"))}</span>
+        <em>未確認: {_safe(quality_unavailable)}</em>
+      </div>
+    """
     design_direction = design_direction or {}
     selected_canva_name = _safe(str(design_direction.get("canva_candidate_name", "Canva候補はdesign-brief.mdで確認")))
     selected_canva_url = _safe(str(design_direction.get("canva_candidate_url", "design-brief.md")))
@@ -925,6 +938,20 @@ def create_market_report(
       border-radius: 12px;
       padding: 8px 10px;
     }}
+    .quality-strip {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid #bfd3e8;
+      border-radius: 14px;
+      background: #f5f9fd;
+      color: #334155;
+    }}
+    .quality-strip strong {{ color: #0369a1; }}
+    .quality-strip span {{ font-weight: 800; }}
+    .quality-strip em {{ color: #64748b; font-style: normal; }}
     .digest-strip {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2094,6 +2121,7 @@ def create_market_report(
           <div class="badge">{_safe(market_label)}</div>
           <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
           <div class="meta">配信日時: {_safe(summary.get("generated_at", ""))}</div>
+          {data_quality_html}
           <div class="digest-strip">
             {digest_tiles_html}
           </div>
