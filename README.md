@@ -249,3 +249,21 @@ Adobeは現在この環境から直接デザイン生成するツールがない
 - [config/tasks.yaml](/C:/Users/中田　洋介/Documents/Codex/2026-05-22/github-actions-python-telegram-chatgpt-1/config/tasks.yaml)
 - [config/sources.yaml](/C:/Users/中田　洋介/Documents/Codex/2026-05-22/github-actions-python-telegram-chatgpt-1/config/sources.yaml)
 - [config/rules.yaml](/C:/Users/中田　洋介/Documents/Codex/2026-05-22/github-actions-python-telegram-chatgpt-1/config/rules.yaml)
+
+## GitHub Actionsの開始遅延対策
+
+GitHub Actionsの予約実行は、GitHub側の混雑により予定時刻より遅れて開始する場合があります。このプロジェクトでは次の対策を行います。
+
+- 予定時刻より前に複数の予備起動を登録します。
+- `src/schedule_guard.py` が日本時間を確認し、予定時刻より前は通知しません。
+- 通知できる時間帯を過ぎた古い実行は通知しません。
+- GitHub Actionsのキャッシュへ当日の送信済み記録を保存し、同じ通知は1日1回だけ送ります。
+- 手動実行は確認作業のため、時刻ガードと当日1回制限の対象外です。
+
+現在の自動通知時間帯は次のとおりです。
+
+- 7:00 全体マクロ: 07:00から08:30まで
+- 9:30 寄り後日本株: 09:30から11:00まで
+- 17:00 日本市場大引け後: 17:00から18:30まで
+
+この方法は無料版GitHub Actionsで開始遅延の影響を小さくする対策です。GitHub側の実行時刻を完全に保証するものではありません。

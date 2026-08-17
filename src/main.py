@@ -244,7 +244,7 @@ def main() -> int:
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     if not args.dry_run and (not bot_token or not chat_id):
         logging.warning("Telegram 環境変数が未設定のため送信とAI要約をスキップしました")
-        return 0
+        return 2
 
     use_ai = should_use_ai_summary(args.dry_run)
     if not use_ai:

@@ -8,28 +8,68 @@ permissions:
 on:
   workflow_dispatch:
   schedule:
-    # 07:00 JST（月〜土） = 22:00 UTC（日〜金）
+    # GitHub側の開始遅延に備えた予備起動。送信は07:00-08:30 JSTの最初の1回だけ。
+    - cron: "20 21 * * 0-5"
+    - cron: "40 21 * * 0-5"
     - cron: "0 22 * * 0-5"
+    - cron: "20 22 * * 0-5"
+
+concurrency:
+  group: notification-fx-morning
+  cancel-in-progress: false
 
 jobs:
   notify:
     runs-on: ubuntu-latest
+    outputs:
+      sent: ${{ steps.run_task.outputs.sent }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check delivery window
+        id: window
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: python src/schedule_guard.py --task fx_morning --target 07:00 --latest 08:30 --weekdays 1,2,3,4,5,6
+
+      - name: Restore daily sent marker
+        id: sent_marker
+        if: github.event_name == 'schedule' && steps.window.outputs.ready == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .notification-marker
+          key: ${{ steps.window.outputs.cache_key }}
+
+      - name: Decide whether to send
+        id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          READY: ${{ steps.window.outputs.ready }}
+          CACHE_HIT: ${{ steps.sent_marker.outputs.cache-hit }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] || [[ "$READY" == "true" && "$CACHE_HIT" != "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Python
+        if: steps.decision.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        if: steps.decision.outputs.run == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y fonts-noto-cjk
           pip install -r requirements.txt
 
       - name: Run task
+        id: run_task
+        if: steps.decision.outputs.run == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -39,17 +79,36 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           REPORT_BASE_URL: https://youn24.github.io/market-telegram-notifier/
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python src/main.py --task fx_morning
+        run: |
+          python src/main.py --task fx_morning
+          echo "sent=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create daily sent marker
+        if: github.event_name == 'schedule' && steps.run_task.outputs.sent == 'true'
+        run: |
+          mkdir -p .notification-marker
+          printf '%s\n' "${{ steps.window.outputs.date }} fx_morning" > .notification-marker/sent.txt
+
+      - name: Save daily sent marker
+        if: github.event_name == 'schedule' && steps.run_task.outputs.sent == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .notification-marker
+          key: ${{ steps.window.outputs.cache_key }}
 
       - name: Setup Pages
+        if: steps.run_task.outputs.sent == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: steps.run_task.outputs.sent == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
+    if: needs.notify.outputs.sent == 'true'
     environment:
       name: github-pages
     needs: notify
