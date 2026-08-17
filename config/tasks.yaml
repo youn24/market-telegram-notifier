@@ -11,6 +11,7 @@ fx_morning:
 japan_morning:
   enabled: true
   category: japan_market
+  include_themes: true
   title: "9:30 寄り後の日本株・海外市場・材料確認"
   run_at: "09:30"
   weekdays: [1, 2, 3, 4, 5]
@@ -28,6 +29,7 @@ japan_midday:
 japan_close:
   enabled: true
   category: japan_market
+  include_themes: true
   title: "17:00 日本市場 大引け後・需給チェック"
   run_at: "17:00"
   weekdays: [1, 2, 3, 4, 5]

@@ -10,6 +10,7 @@ import yfinance as yf
 
 from fetch_macro import fetch_macro_snapshot
 from fetch_nikkei225jp import fetch_nikkei225jp_snapshot
+from fetch_themes import fetch_theme_snapshot
 
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -171,6 +172,7 @@ def fetch_japan_market_snapshot(
             "ratings": unavailable_items.get("ratings", "未確認"),
             "supply_demand": unavailable_items.get("supply_demand", "未確認"),
         }
+    themes = fetch_theme_snapshot(sources) if task_config.get("include_themes", False) else {"status": "disabled", "themes": []}
 
     return {
         "task_id": task_id,
@@ -178,5 +180,6 @@ def fetch_japan_market_snapshot(
         "items": items,
         "macro_items": fetch_macro_snapshot(task_config, sources),
         "nikkei225jp": fetch_nikkei225jp_snapshot(sources),
+        "themes": themes,
         "highlights": highlights,
     }

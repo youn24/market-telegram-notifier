@@ -442,6 +442,59 @@ def _render_world_board(raw_data: dict[str, Any]) -> str:
     return "\n".join(sections)
 
 
+def _render_theme_board(raw_data: dict[str, Any]) -> str:
+    snapshot = raw_data.get("themes", {}) or {}
+    rows = snapshot.get("themes", []) or []
+    if not rows:
+        return '<div class="theme-empty">テーマ株は対象外、または未確認です。</div>'
+
+    cards: list[str] = []
+    for theme in rows:
+        status = theme.get("status")
+        direction = theme.get("direction", "neutral") if status == "ok" else "unavailable"
+        average = theme.get("average_change_pct")
+        average_text = f"{average:+.2f}%" if isinstance(average, (int, float)) else "未確認"
+        breadth_key = "breadth_down_pct" if direction == "bear" else "breadth_up_pct"
+        breadth = theme.get(breadth_key)
+        breadth_text = f"{breadth:.0f}%" if isinstance(breadth, (int, float)) else "未確認"
+        score = theme.get("confirmation_score")
+        score_text = str(score) if isinstance(score, int) else "未確認"
+        valid_count = theme.get("valid_count", 0)
+        total_count = theme.get("total_count", 0)
+
+        leaders = []
+        for member in theme.get("leaders", [])[:3]:
+            change = member.get("change_pct")
+            change_text = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
+            leaders.append(
+                f'<li><span>{_safe(member.get("label", member.get("ticker", "未確認")))}</span>'
+                f'<strong>{_safe(change_text)}</strong></li>'
+            )
+        leaders_html = "".join(leaders) or "<li><span>主導銘柄</span><strong>未確認</strong></li>"
+        note = theme.get("note") or "複数銘柄の等ウェイト平均と騰落の広がりで判定"
+        cards.append(
+            "\n".join(
+                [
+                    f'<article class="theme-card {direction}">',
+                    '  <div class="theme-card-head">',
+                    f'    <h3>{_safe(theme.get("label", "テーマ株"))}</h3>',
+                    f'    <span>{_safe(theme.get("signal", "未確認"))}</span>',
+                    "  </div>",
+                    '  <div class="theme-stats">',
+                    f'    <div><small>平均騰落</small><strong>{_safe(average_text)}</strong></div>',
+                    f'    <div><small>同方向</small><strong>{_safe(breadth_text)}</strong></div>',
+                    f'    <div><small>取得</small><strong>{_safe(f"{valid_count}/{total_count}")}</strong></div>',
+                    f'    <div><small>確認度</small><strong>{_safe(score_text)}</strong></div>',
+                    "  </div>",
+                    f'  <ul class="theme-leaders">{leaders_html}</ul>',
+                    f'  <p>{_safe(note)}</p>',
+                    "</article>",
+                ]
+            )
+        )
+    return '<div class="theme-board">' + "\n".join(cards) + "</div>"
+
+
 def _render_chart_board(raw_data: dict[str, Any]) -> str:
     lookup = {item.get("key"): item for item in raw_data.get("items", []) + raw_data.get("macro_items", [])}
     cards: list[str] = []
@@ -637,6 +690,7 @@ def create_market_report(
     category_style = _category_style(task_config)
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
     world_board_html = _render_world_board(raw_data)
+    theme_board_html = _render_theme_board(raw_data)
     chart_board_html = _render_chart_board(raw_data)
     ticker_strip_html = _render_ticker_strip(raw_data)
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
@@ -1135,6 +1189,36 @@ def create_market_report(
       display: grid;
       gap: 8px;
     }}
+    .theme-board {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }}
+    .theme-card {{
+      padding: 18px;
+      border: 1px solid #cbd5e1;
+      border-top: 5px solid #64748b;
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 12px 26px rgba(15, 23, 42, .08);
+    }}
+    .theme-card.bull {{ border-top-color: #16a34a; background: linear-gradient(180deg, #f0fdf4, #ffffff 42%); }}
+    .theme-card.bear {{ border-top-color: #dc2626; background: linear-gradient(180deg, #fef2f2, #ffffff 42%); }}
+    .theme-card.unavailable {{ color: #64748b; background: #f8fafc; }}
+    .theme-card-head {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
+    .theme-card-head h3 {{ margin: 0; color: #0f172a; font-size: 22px; }}
+    .theme-card-head span {{ padding: 6px 12px; border-radius: 999px; background: #e2e8f0; font-weight: 900; }}
+    .theme-card.bull .theme-card-head span {{ color: #166534; background: #dcfce7; }}
+    .theme-card.bear .theme-card-head span {{ color: #991b1b; background: #fee2e2; }}
+    .theme-stats {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }}
+    .theme-stats div {{ padding: 10px 6px; border-radius: 12px; text-align: center; background: rgba(226, 232, 240, .66); }}
+    .theme-stats small {{ display: block; color: #64748b; font-size: 12px; font-weight: 800; }}
+    .theme-stats strong {{ display: block; margin-top: 4px; color: #0f172a; font-size: 18px; }}
+    .theme-leaders {{ margin: 0; padding: 0; list-style: none; }}
+    .theme-leaders li {{ display: flex; justify-content: space-between; gap: 12px; padding: 8px 4px; border-bottom: 1px solid #e2e8f0; }}
+    .theme-leaders strong {{ color: #0f172a; }}
+    .theme-card p {{ margin: 12px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }}
+    .theme-empty {{ padding: 20px; border-radius: 14px; color: #64748b; background: #f8fafc; }}
     .chart-board {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2159,6 +2243,12 @@ def create_market_report(
       {visual_signal_html}
       <h3>騰落ヒートマップ</h3>
       {market_heatmap_html}
+    </section>
+
+    <section class="panel">
+      <h2>テーマ株・主導銘柄</h2>
+      <p class="section-note">単独銘柄ではなく、複数銘柄の平均騰落と同方向比率で確認します。</p>
+      {theme_board_html}
     </section>
 
     <section class="panel">

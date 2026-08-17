@@ -263,6 +263,38 @@ def _clip_analysis_text(text: str, max_chars: int = 60) -> str:
     return cleaned[: max_chars - 1].rstrip() + "…"
 
 
+def _theme_summary(raw_data: dict[str, Any]) -> dict[str, Any]:
+    snapshot = raw_data.get("themes", {}) or {}
+    theme_rows = snapshot.get("themes", []) or []
+    primary = snapshot.get("primary")
+    alerts = snapshot.get("alerts", []) or []
+    if not primary or primary.get("status") != "ok":
+        return {
+            "theme_headline": "テーマ株: 未確認",
+            "theme_primary": None,
+            "theme_rows": theme_rows,
+            "theme_alerts": alerts,
+        }
+
+    average = primary.get("average_change_pct")
+    direction = primary.get("direction", "neutral")
+    breadth_key = "breadth_down_pct" if direction == "bear" else "breadth_up_pct"
+    breadth = primary.get(breadth_key)
+    score = primary.get("confirmation_score")
+    average_text = f"{average:+.2f}%" if isinstance(average, (int, float)) else "未確認"
+    breadth_text = f"{breadth:.0f}%" if isinstance(breadth, (int, float)) else "未確認"
+    score_text = f" / 確認度{score}" if isinstance(score, int) else ""
+    return {
+        "theme_headline": (
+            f"{primary.get('label', 'テーマ株')} {primary.get('signal', '監視')} "
+            f"{average_text} / 同方向{breadth_text}{score_text}"
+        ),
+        "theme_primary": primary,
+        "theme_rows": theme_rows,
+        "theme_alerts": alerts,
+    }
+
+
 def _deep_summary_lines(
     raw_data: dict[str, Any],
     tone: str,
@@ -882,6 +914,7 @@ def build_summary(
     generated_at = datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S JST")
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
     tone = _market_tone(raw_data, thresholds)
+    theme_summary = _theme_summary(raw_data)
     theme_title, theme_subtitle = _theme_block(task_id, task_config, tone, generated_at)
 
     lines: list[str] = []
@@ -928,6 +961,8 @@ def build_summary(
     )
 
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
+    if theme_summary["theme_primary"]:
+        commentary = [f"テーマ株: {theme_summary['theme_headline']}", *commentary][:3]
     research_lines = _research_lines(raw_data)
     research_theme_lines = _research_theme_lines(raw_data)
     research_confidence_line = _research_confidence_line(raw_data)
@@ -963,6 +998,8 @@ def build_summary(
         research_evidence_briefs,
     )
     deep_summary_lines = [analysis_dashboard["checklist"][0], *deep_summary_lines[:3]]
+    if theme_summary["theme_primary"]:
+        deep_summary_lines = [f"テーマ: {theme_summary['theme_headline']}", *deep_summary_lines[:3]]
     key_metrics = macro_lines[:4] + market_lines[:4]
 
     return {
@@ -1002,4 +1039,5 @@ def build_summary(
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
         "series_mode": raw_data.get("series_mode", "daily"),
+        **theme_summary,
     }

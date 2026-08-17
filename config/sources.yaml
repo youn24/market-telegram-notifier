@@ -162,6 +162,56 @@ after_hours:
       threshold_pct: 3.0
       anomaly_limit_pct: 40.0
 
+theme_stocks:
+  enabled: true
+  minimum_valid_symbols: 3
+  alert_average_pct: 1.5
+  alert_breadth_pct: 75
+  max_age_hours: 30
+  themes:
+    semiconductors:
+      label: "半導体"
+      symbols:
+        - {ticker: "6857.T", label: "アドバンテスト"}
+        - {ticker: "8035.T", label: "東京エレクトロン"}
+        - {ticker: "6146.T", label: "ディスコ"}
+        - {ticker: "7735.T", label: "SCREEN"}
+    ai_datacenter:
+      label: "AI・データセンター"
+      symbols:
+        - {ticker: "5803.T", label: "フジクラ"}
+        - {ticker: "5801.T", label: "古河電工"}
+        - {ticker: "6701.T", label: "NEC"}
+        - {ticker: "9984.T", label: "ソフトバンクG"}
+    defense:
+      label: "防衛"
+      symbols:
+        - {ticker: "7011.T", label: "三菱重工"}
+        - {ticker: "7012.T", label: "川崎重工"}
+        - {ticker: "7013.T", label: "IHI"}
+        - {ticker: "6701.T", label: "NEC"}
+    banks:
+      label: "銀行"
+      symbols:
+        - {ticker: "8306.T", label: "三菱UFJ"}
+        - {ticker: "8316.T", label: "三井住友FG"}
+        - {ticker: "8411.T", label: "みずほFG"}
+        - {ticker: "8308.T", label: "りそなHD"}
+    robotics:
+      label: "ロボット・FA"
+      symbols:
+        - {ticker: "6954.T", label: "ファナック"}
+        - {ticker: "6506.T", label: "安川電機"}
+        - {ticker: "6861.T", label: "キーエンス"}
+        - {ticker: "6273.T", label: "SMC"}
+    infrastructure:
+      label: "建設・インフラ"
+      symbols:
+        - {ticker: "1801.T", label: "大成建設"}
+        - {ticker: "1802.T", label: "大林組"}
+        - {ticker: "1803.T", label: "清水建設"}
+        - {ticker: "1812.T", label: "鹿島"}
+
 macro:
   fred_series:
     US10Y:

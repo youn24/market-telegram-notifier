@@ -501,6 +501,11 @@ def _trend_counts(visual_items: list[dict[str, Any]]) -> tuple[int, int]:
 
 
 def _headline_chip(summary: dict[str, Any], visual_items: list[dict[str, Any]]) -> str:
+    theme = summary.get("theme_primary")
+    if theme and theme.get("status") == "ok":
+        change = theme.get("average_change_pct")
+        change_text = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
+        return f"{theme.get('label', 'テーマ株')} {change_text}"
     vix = next((item for item in visual_items if "VIX" in str(item.get("label", "")).upper()), None)
     vix_change = vix.get("change_pct") if vix else None
     tone = summary.get("market_tone", "neutral")
@@ -755,10 +760,13 @@ def _draw_dark_memo(
     student_text = next((str(item.get("text", "")) for item in dialogue if item.get("role") == "student"), "")
     action = str(summary.get("analysis_dashboard", {}).get("action", "取得済みデータだけで判断します。"))
     comments = [
+        f"テーマ: {summary.get('theme_headline')}",
         f"先生: {summary.get('conclusion_text', '大きな偏りは未確認です。')}",
         f"カワウソ: {student_text or '先生、いま最優先で見る数字はどれですか？'}",
         f"実戦: {action}",
     ]
+    if not summary.get("theme_primary"):
+        comments.pop(0)
     text_y = y + 82
     text_right = x + width - 300
     for comment in comments[:3]:
