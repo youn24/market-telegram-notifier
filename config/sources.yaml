@@ -68,6 +68,100 @@ japan_market:
     ratings: "信用評価・レーティングは無料版では未確認"
     supply_demand: "需給データは無料版では未確認"
 
+after_hours:
+  max_age_minutes: 75
+  symbols:
+    NIKKEI_FUT:
+      ticker: "NKD=F"
+      label: "日経225先物(CMEドル建て)"
+      kind: equity_future
+      threshold_pct: 1.0
+      anomaly_limit_pct: 20.0
+    SP500_FUT:
+      ticker: "ES=F"
+      label: "S&P500先物"
+      kind: equity_future
+      threshold_pct: 1.0
+      anomaly_limit_pct: 15.0
+    NASDAQ100_FUT:
+      ticker: "NQ=F"
+      label: "NASDAQ100先物"
+      kind: equity_future
+      threshold_pct: 1.0
+      anomaly_limit_pct: 18.0
+    DOW_FUT:
+      ticker: "YM=F"
+      label: "NYダウ先物"
+      kind: equity_future
+      threshold_pct: 1.0
+      anomaly_limit_pct: 15.0
+    RUSSELL_FUT:
+      ticker: "RTY=F"
+      label: "Russell2000先物"
+      kind: equity_future
+      threshold_pct: 1.0
+      anomaly_limit_pct: 20.0
+    VIX:
+      ticker: "^VIX"
+      label: "VIX"
+      kind: volatility
+      threshold_pct: 5.0
+      anomaly_limit_pct: 60.0
+    USDJPY:
+      ticker: "JPY=X"
+      label: "USD/JPY"
+      kind: fx
+      threshold_pct: 0.5
+      anomaly_limit_pct: 8.0
+    GOLD:
+      ticker: "GC=F"
+      label: "金先物"
+      kind: commodity
+      threshold_pct: 2.0
+      anomaly_limit_pct: 20.0
+    WTI:
+      ticker: "CL=F"
+      label: "WTI原油"
+      kind: commodity
+      threshold_pct: 2.0
+      anomaly_limit_pct: 30.0
+    ADR_TM:
+      ticker: "TM"
+      label: "トヨタADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+    ADR_SONY:
+      ticker: "SONY"
+      label: "ソニーADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+    ADR_MUFG:
+      ticker: "MUFG"
+      label: "三菱UFJ ADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+    ADR_SMFG:
+      ticker: "SMFG"
+      label: "三井住友FG ADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+    ADR_MIZUHO:
+      ticker: "MFG"
+      label: "みずほFG ADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+    ADR_HONDA:
+      ticker: "HMC"
+      label: "ホンダADR"
+      kind: adr
+      threshold_pct: 3.0
+      anomaly_limit_pct: 40.0
+
 macro:
   fred_series:
     US10Y:

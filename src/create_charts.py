@@ -25,10 +25,26 @@ STOCK_KEYS = {
     "HANGSENG",
     "SHANGHAI",
     "KOSPI",
+    "NIKKEI_FUT",
+    "SP500_FUT",
+    "NASDAQ100_FUT",
+    "DOW_FUT",
+    "RUSSELL_FUT",
+    "ADR_TM",
+    "ADR_SONY",
+    "ADR_MUFG",
+    "ADR_SMFG",
+    "ADR_MIZUHO",
+    "ADR_HONDA",
 }
 FX_COMMODITY_KEYS = {"USDJPY", "EURJPY", "EURUSD", "DXY", "DOLLAR_BROAD", "GOLD", "WTI"}
 RISK_RATE_KEYS = {"US10Y", "SOFR", "VIX", "YIELD_2S10S"}
 PREFERRED_KEYS = [
+    "NIKKEI_FUT",
+    "SP500_FUT",
+    "NASDAQ100_FUT",
+    "DOW_FUT",
+    "RUSSELL_FUT",
     "NIKKEI225",
     "TOPIX",
     "DOW",
@@ -48,21 +64,21 @@ PREFERRED_KEYS = [
 COLORS = ["#38bdf8", "#f97316", "#22c55e", "#f472b6", "#a78bfa", "#06b6d4", "#facc15", "#cbd5e1"]
 
 
-def _parse_date(value: Any) -> date | None:
+def _parse_date(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
         return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value)[:10]).date()
+        return datetime.fromisoformat(str(value))
     except ValueError:
         return None
 
 
-def _chart_points(item: dict[str, Any]) -> list[tuple[date, float]]:
-    points_by_date: dict[date, float] = {}
+def _chart_points(item: dict[str, Any]) -> list[tuple[datetime, float]]:
+    points_by_date: dict[datetime, float] = {}
     for point in item.get("series", []):
         point_date = _parse_date(point.get("date"))
         raw_value = point.get("value")
@@ -109,7 +125,7 @@ def _split_groups(chart_items: list[dict[str, Any]]) -> dict[str, list[dict[str,
     return groups
 
 
-def _normalize(points: list[tuple[date, float]]) -> tuple[list[date], list[float]]:
+def _normalize(points: list[tuple[datetime, float]]) -> tuple[list[datetime], list[float]]:
     raw_values = [value for _, value in points]
     base_value = raw_values[0] if raw_values and raw_values[0] else 1
     return [point_date for point_date, _ in points], [(value / base_value) * 100 for value in raw_values]
@@ -154,9 +170,10 @@ def _style_axis(ax: Any) -> None:
     ax.grid(True, alpha=0.46, color="#21344f", linewidth=1.1)
 
 
-def _set_date_axis(ax: Any) -> None:
+def _set_date_axis(ax: Any, values: list[datetime]) -> None:
     ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=7))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
+    span_days = (max(values) - min(values)).total_seconds() / 86400 if len(values) >= 2 else 99
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M" if span_days < 2 else "%m/%d"))
 
 
 def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lines: int = 7) -> None:
@@ -169,11 +186,13 @@ def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lin
     plotted = entries[:max_lines]
     min_value = 100.0
     max_value = 100.0
+    all_dates: list[datetime] = []
     for index, entry in enumerate(plotted):
         item = entry["item"]
         x_values, y_values = _normalize(entry["points"])
         if not y_values:
             continue
+        all_dates.extend(x_values)
         min_value = min(min_value, min(y_values))
         max_value = max(max_value, max(y_values))
         color = COLORS[index % len(COLORS)]
@@ -183,7 +202,7 @@ def _draw_line_panel(ax: Any, title: str, entries: list[dict[str, Any]], max_lin
     span = max(max_value - min_value, 1.0)
     ax.set_ylim(min_value - span * 0.22, max_value + span * 0.24)
     ax.axhline(100, color="#93c5fd", linewidth=1.4, alpha=0.9)
-    _set_date_axis(ax)
+    _set_date_axis(ax, all_dates)
     legend_columns = 2 if len(plotted) <= 4 else 3
     ax.legend(
         facecolor="#10243a",
@@ -262,7 +281,8 @@ def create_market_chart(
     risk_entries = groups["risk_rate"]
 
     title = task_config.get("title", task_id)
-    fig.suptitle(f"{title}\n直近6取得日ダッシュボード", color="#f8fafc", fontsize=26, fontweight="bold", y=0.997)
+    period_label = "直近観測ダッシュボード" if raw_data.get("series_mode") == "intraday" else "直近6取得日ダッシュボード"
+    fig.suptitle(f"{title}\n{period_label}", color="#f8fafc", fontsize=26, fontweight="bold", y=0.997)
     _draw_line_panel(axes[0], "1. 株価指数: 同じ種類だけで比較（初日=100）", stock_entries, max_lines=6)
     _draw_line_panel(axes[1], "2. 為替・商品: 外部環境の方向（初日=100）", fx_entries, max_lines=5)
     _draw_line_panel(axes[2], "3. 金利・VIX: リスク温度計（初日=100）", risk_entries, max_lines=4)

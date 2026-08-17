@@ -628,7 +628,7 @@ def _format_macro_line(item: dict[str, Any]) -> str:
 
 
 def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
-    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "YIELD_2S10S"]
+    preferred_keys = ["NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "VIX", "USDJPY", "NIKKEI225", "TOPIX", "SP500", "NASDAQ", "US10Y", "YIELD_2S10S"]
     source_items = raw_data.get("items", []) + raw_data.get("macro_items", [])
     by_key = {item.get("key"): item for item in source_items}
     ordered_items = [by_key[key] for key in preferred_keys if key in by_key]
@@ -659,7 +659,7 @@ def _build_visual_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _build_sparkline_items(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
-    preferred_keys = ["NIKKEI225", "TOPIX", "SP500", "NASDAQ", "USDJPY", "US10Y", "VIX", "DOLLAR_BROAD"]
+    preferred_keys = ["NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "VIX", "USDJPY", "NIKKEI225", "TOPIX", "SP500", "NASDAQ", "US10Y", "DOLLAR_BROAD"]
     source_items = raw_data.get("items", []) + raw_data.get("macro_items", [])
     by_key = {item.get("key"): item for item in source_items}
     ordered_items = [by_key[key] for key in preferred_keys if key in by_key]
@@ -732,21 +732,21 @@ def _find_item(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
     return None
 
 
-def _parse_series_date(value: Any) -> date | None:
+def _parse_series_date(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
         return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value)[:10]).date()
+        return datetime.fromisoformat(str(value))
     except ValueError:
         return None
 
 
 def _sorted_series(series: list[dict[str, Any]], limit: int = 6) -> list[dict[str, Any]]:
-    points_by_date: dict[date, float] = {}
+    points_by_date: dict[datetime, float] = {}
     for point in series:
         point_date = _parse_series_date(point.get("date"))
         value = point.get("value")
@@ -1001,4 +1001,5 @@ def build_summary(
         "nikkei225jp_lines": nikkei225jp_lines,
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
+        "series_mode": raw_data.get("series_mode", "daily"),
     }

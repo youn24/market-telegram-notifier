@@ -434,6 +434,16 @@ def _category_style(task_config: dict[str, Any]) -> dict[str, str]:
             "rail": "RESULTS / GUIDANCE",
             "signal_label": "決算軸",
         },
+        "after_hours": {
+            "kicker": "AFTER HOURS",
+            "label": "時間外急変",
+            "subtitle": "先物・VIX・為替・商品・日本株ADRを監視",
+            "accent": "#f59e0b",
+            "accent2": "#38bdf8",
+            "fill": "#422006",
+            "rail": "FUTURES / VIX / ADR",
+            "signal_label": "確認度",
+        },
     }
     return styles.get(category, styles["japan_market"])
 
@@ -498,6 +508,8 @@ def _headline_chip(summary: dict[str, Any], visual_items: list[dict[str, Any]]) 
     score = dashboard.get("score")
     band = dashboard.get("band")
     if isinstance(score, int) and band:
+        if summary.get("series_mode") == "intraday":
+            return f"確認度 {score}/100・{band}"
         return f"地合い {score}/100・{band}"
     if isinstance(vix_change, (int, float)) and vix_change >= 1.0:
         return "VIX上昇 / 警戒感あり"
@@ -593,7 +605,8 @@ def _draw_priority_banner(
     draw.rounded_rectangle((x + width - 216, y + 18, x + width - 24, y + 78), radius=18, fill="#0b1624", outline="#334155", width=2)
     quality = summary.get("data_quality", {})
     quality_text = f"品質 {quality.get('verified', 0)}/{quality.get('total', 0)}"
-    draw.text((x + width - 190, y + 24), f"地合い {score_text}", fill="#f8fafc", font=_load_font(20, bold=True))
+    score_label = "確認度" if summary.get("series_mode") == "intraday" else "地合い"
+    draw.text((x + width - 190, y + 24), f"{score_label} {score_text}", fill="#f8fafc", font=_load_font(20, bold=True))
     draw.text((x + width - 190, y + 50), quality_text, fill="#93c5fd", font=_load_font(17, bold=True))
 
 
@@ -611,7 +624,9 @@ def _draw_dark_line_chart(
     width: int,
     height: int,
 ) -> None:
-    _draw_panel(draw, (x, y, x + width, y + height), "直近6取得日の価格推移（初日=100）")
+    intraday = summary.get("series_mode") == "intraday"
+    panel_title = "直近6観測の時間外推移（最初=100）" if intraday else "直近6取得日の価格推移（初日=100）"
+    _draw_panel(draw, (x, y, x + width, y + height), panel_title)
     risk_keys = {"US10Y", "SOFR", "VIX", "YIELD_2S10S"}
     all_items = summary.get("sparkline_items", []) or []
     price_items = [item for item in all_items if str(item.get("key", "")) not in risk_keys]
@@ -644,7 +659,7 @@ def _draw_dark_line_chart(
     for index in range(6):
         gx = plot_x + int(plot_w * index / 5)
         draw.line((gx, plot_y, gx, plot_y + plot_h), fill="#162437", width=1)
-        label = "当日" if index == 5 else f"{5 - index}営業日前"
+        label = "最新" if intraday and index == 5 else f"{5 - index}観測前" if intraday else "当日" if index == 5 else f"{5 - index}営業日前"
         draw.text((gx - 44, plot_y + plot_h + 18), label, fill="#dbeafe", font=_load_font(16, bold=True))
 
     for index, (item, values) in enumerate(normalized_map):
@@ -677,13 +692,15 @@ def _draw_dark_line_chart(
 
 def _draw_dark_bar_ranking(
     draw: ImageDraw.ImageDraw,
+    summary: dict[str, Any],
     visual_items: list[dict[str, Any]],
     x: int,
     y: int,
     width: int,
     height: int,
 ) -> None:
-    _draw_panel(draw, (x, y, x + width, y + height), "同種資産の前日比ランキング")
+    title = "急変ランキング（前日終値比）" if summary.get("series_mode") == "intraday" else "同種資産の前日比ランキング"
+    _draw_panel(draw, (x, y, x + width, y + height), title)
     ranked = [
         item
         for item in visual_items
@@ -709,7 +726,8 @@ def _draw_dark_bar_ranking(
         row_y = plot_y + index * row_gap
         label = str(item.get("label", "未確認"))[:14]
         change = float(item.get("change_pct", 0))
-        color = "#4ade80" if change >= 0 else "#fb7185"
+        risk_rise = str(item.get("key", "")) == "VIX" and change > 0
+        color = "#fb7185" if risk_rise or change < 0 else "#4ade80"
         length = int(min(abs(change), max_abs) / max_abs * (plot_w // 2 - 8))
         draw.text((x + 34, row_y - 10), label, fill="#f8fafc", font=_load_font(21, bold=True))
         if change >= 0:
@@ -779,7 +797,7 @@ def create_summary_card(
     _draw_dark_header(draw, summary, task_config, visual_items, palette, category_style, 52, 54, width - 104)
     _draw_priority_banner(draw, summary, palette, category_style, 52, 314, width - 104)
     _draw_dark_line_chart(draw, summary, 52, 434, width - 104, 500)
-    _draw_dark_bar_ranking(draw, visual_items, 52, 958, width - 104, 430)
+    _draw_dark_bar_ranking(draw, summary, visual_items, 52, 958, width - 104, 430)
     _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
     _paste_dark_characters(image, summary.get("market_tone", "neutral"))
     draw.rounded_rectangle((780, 1452, 938, 1488), radius=14, fill="#3b2a06", outline="#fbbf24", width=2)

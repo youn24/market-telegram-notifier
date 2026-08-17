@@ -1,0 +1,127 @@
+{
+  "task_id": "after_hours_alert",
+  "section": "after_hours",
+  "series_mode": "intraday",
+  "items": [
+    {
+      "key": "NASDAQ100_FUT",
+      "label": "NASDAQ100先物",
+      "kind": "equity_future",
+      "current": 24875.0,
+      "previous": 25254.0,
+      "change_pct": -1.50,
+      "threshold_pct": 1.0,
+      "series": [
+        {"date": "2026-08-17T20:00+09:00", "value": 25254.0},
+        {"date": "2026-08-17T20:30+09:00", "value": 25120.0},
+        {"date": "2026-08-17T21:00+09:00", "value": 25040.0},
+        {"date": "2026-08-17T21:30+09:00", "value": 24980.0},
+        {"date": "2026-08-17T22:00+09:00", "value": 24920.0},
+        {"date": "2026-08-17T22:30+09:00", "value": 24875.0}
+      ],
+      "status": "ok",
+      "source": "Yahoo Finance via yfinance",
+      "as_of": "2026-08-17 22:30 JST",
+      "age_minutes": 5.0,
+      "quality_status": "verified",
+      "comparison_group": "market_return"
+    },
+    {
+      "key": "SP500_FUT",
+      "label": "S&P500先物",
+      "kind": "equity_future",
+      "current": 7760.0,
+      "previous": 7822.5,
+      "change_pct": -0.80,
+      "threshold_pct": 1.0,
+      "series": [
+        {"date": "2026-08-17T20:00+09:00", "value": 7822.5},
+        {"date": "2026-08-17T20:30+09:00", "value": 7805.0},
+        {"date": "2026-08-17T21:00+09:00", "value": 7794.0},
+        {"date": "2026-08-17T21:30+09:00", "value": 7785.0},
+        {"date": "2026-08-17T22:00+09:00", "value": 7772.0},
+        {"date": "2026-08-17T22:30+09:00", "value": 7760.0}
+      ],
+      "status": "ok",
+      "source": "Yahoo Finance via yfinance",
+      "as_of": "2026-08-17 22:30 JST",
+      "age_minutes": 5.0,
+      "quality_status": "verified",
+      "comparison_group": "market_return"
+    },
+    {
+      "key": "DOW_FUT",
+      "label": "NYダウ先物",
+      "kind": "equity_future",
+      "current": 46220.0,
+      "previous": 46500.0,
+      "change_pct": -0.60,
+      "threshold_pct": 1.0,
+      "series": [
+        {"date": "2026-08-17T20:00+09:00", "value": 46500.0},
+        {"date": "2026-08-17T20:30+09:00", "value": 46460.0},
+        {"date": "2026-08-17T21:00+09:00", "value": 46400.0},
+        {"date": "2026-08-17T21:30+09:00", "value": 46340.0},
+        {"date": "2026-08-17T22:00+09:00", "value": 46280.0},
+        {"date": "2026-08-17T22:30+09:00", "value": 46220.0}
+      ],
+      "status": "ok",
+      "source": "Yahoo Finance via yfinance",
+      "as_of": "2026-08-17 22:30 JST",
+      "age_minutes": 5.0,
+      "quality_status": "verified",
+      "comparison_group": "market_return"
+    },
+    {
+      "key": "VIX",
+      "label": "VIX",
+      "kind": "volatility",
+      "current": 21.2,
+      "previous": 20.0,
+      "change_pct": 6.0,
+      "threshold_pct": 5.0,
+      "series": [
+        {"date": "2026-08-17T20:00+09:00", "value": 20.0},
+        {"date": "2026-08-17T20:30+09:00", "value": 20.2},
+        {"date": "2026-08-17T21:00+09:00", "value": 20.4},
+        {"date": "2026-08-17T21:30+09:00", "value": 20.7},
+        {"date": "2026-08-17T22:00+09:00", "value": 20.9},
+        {"date": "2026-08-17T22:30+09:00", "value": 21.2}
+      ],
+      "status": "ok",
+      "source": "Yahoo Finance via yfinance",
+      "as_of": "2026-08-17 22:30 JST",
+      "age_minutes": 5.0,
+      "quality_status": "verified",
+      "comparison_group": "market_return"
+    }
+  ],
+  "macro_items": [],
+  "highlights": {
+    "analysis": "NASDAQ100先物の急変を複数条件で確認しました",
+    "signal_reliability": "確認度はデータ鮮度と市場整合性の評価であり、売買の勝率ではありません。"
+  },
+  "alert": {
+    "triggered": true,
+    "primary": {
+      "key": "NASDAQ100_FUT",
+      "label": "NASDAQ100先物",
+      "change_pct": -1.50,
+      "score": 100,
+      "reasons": [
+        "NASDAQ100先物が基準1.0%を超え-1.50%",
+        "直近4観測のうち3回以上で同方向を維持",
+        "他の株価先物2本も同方向",
+        "VIXも株価先物と整合"
+      ],
+      "contradictions": [],
+      "as_of": "2026-08-17 22:30 JST",
+      "source": "Yahoo Finance via yfinance"
+    },
+    "candidates": [],
+    "confirmation_label": "高",
+    "note": "NASDAQ100先物の急変を複数条件で確認しました",
+    "minimum_score": 75,
+    "disclaimer": "確認度はデータ鮮度と市場整合性の評価であり、売買の勝率ではありません。"
+  }
+}

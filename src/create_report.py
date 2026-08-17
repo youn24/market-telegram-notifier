@@ -75,6 +75,15 @@ def _category_style(task_config: dict[str, Any]) -> dict[str, str]:
             "accent2": "#d97706",
             "soft": "#fff1f2",
         },
+        "after_hours": {
+            "class": "after-hours",
+            "kicker": "AFTER HOURS",
+            "label": "時間外急変",
+            "subtitle": "先物・VIX・為替・商品・日本株ADRを複数条件で確認",
+            "accent": "#d97706",
+            "accent2": "#0284c7",
+            "soft": "#fffbeb",
+        },
     }
     return styles.get(category, styles["japan_market"])
 

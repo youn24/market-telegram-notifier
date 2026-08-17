@@ -34,6 +34,14 @@ japan_close:
   chart_symbols: ["NIKKEI225", "TOPIX", "DOW", "SP500", "NASDAQ", "HANGSENG", "SHANGHAI", "USDJPY", "EURUSD", "GOLD", "WTI"]
   macro_series: ["US10Y", "SOFR", "VIX", "YIELD_2S10S", "DOLLAR_BROAD"]
 
+after_hours_alert:
+  enabled: true
+  category: after_hours
+  title: "時間外 急変シグナル"
+  run_at: ""
+  weekdays: [1, 2, 3, 4, 5, 6, 7]
+  chart_symbols: ["NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "RUSSELL_FUT", "VIX", "USDJPY", "GOLD", "WTI", "ADR_TM", "ADR_SONY", "ADR_MUFG", "ADR_SMFG", "ADR_MIZUHO", "ADR_HONDA"]
+
 earnings_close:
   enabled: false
   category: earnings
