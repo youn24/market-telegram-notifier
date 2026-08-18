@@ -78,6 +78,7 @@ def _summary_evidence_text(summary: dict[str, Any]) -> str:
         "research_theme_lines",
         "research_lines",
         "nikkei225jp_lines",
+        "money_flow_headline",
     ]
     chunks: list[str] = []
     for key in keys:
@@ -136,6 +137,8 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             *_as_lines(summary.get("trade_checklist", []), 5, 110),
             "Rule summary:",
             *_as_lines(summary.get("commentary", []), 2, 100),
+            f"Price-confirmed money direction: {summary.get('money_flow_headline', '未確認')}",
+            f"Actual flow limitation: {summary.get('money_flow', {}).get('actual_flow_note', '未確認')}",
             "Macro metrics:",
             *_as_lines(summary.get("macro_metrics", []), 4, 90),
             "Market metrics:",

@@ -759,13 +759,14 @@ def _draw_dark_memo(
     dialogue = summary.get("dialogue", []) or []
     student_text = next((str(item.get("text", "")) for item in dialogue if item.get("role") == "student"), "")
     action = str(summary.get("analysis_dashboard", {}).get("action", "取得済みデータだけで判断します。"))
+    money_flow = summary.get("money_flow", {}) or {}
     comments = [
-        f"テーマ: {summary.get('theme_headline')}",
+        f"資金方向: {summary.get('money_flow_headline')}",
         f"先生: {summary.get('conclusion_text', '大きな偏りは未確認です。')}",
         f"カワウソ: {student_text or '先生、いま最優先で見る数字はどれですか？'}",
         f"実戦: {action}",
     ]
-    if not summary.get("theme_primary"):
+    if money_flow.get("status") != "ok":
         comments.pop(0)
     text_y = y + 82
     text_right = x + width - 300

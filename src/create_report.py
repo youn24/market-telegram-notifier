@@ -495,6 +495,38 @@ def _render_theme_board(raw_data: dict[str, Any]) -> str:
     return '<div class="theme-board">' + "\n".join(cards) + "</div>"
 
 
+def _render_money_flow_board(summary: dict[str, Any]) -> str:
+    flow = summary.get("money_flow", {}) or {}
+    rows = flow.get("rows", []) or []
+    if not rows:
+        return '<div class="flow-empty">資金方向は未確認です。</div>'
+
+    cards = []
+    for row in rows:
+        direction = row.get("direction", "neutral") if row.get("status") == "verified" else "unavailable"
+        cards.append(
+            "\n".join(
+                [
+                    f'<article class="flow-card {direction}">',
+                    f'  <span>{_safe(row.get("label", "未確認"))}</span>',
+                    f'  <strong>{_safe(row.get("signal", "未確認"))}</strong>',
+                    f'  <em>{_safe(row.get("evidence", "未確認"))}</em>',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(
+        [
+            '<div class="flow-headline">',
+            f'  <small>{_safe(flow.get("label", "価格から見た資金方向"))}</small>',
+            f'  <strong>{_safe(flow.get("headline", "未確認"))}</strong>',
+            "</div>",
+            f'<div class="flow-board">{"".join(cards)}</div>',
+            f'<p class="flow-note">{_safe(flow.get("actual_flow_note", "実際の資金流入額は未確認です。"))}</p>',
+        ]
+    )
+
+
 def _render_chart_board(raw_data: dict[str, Any]) -> str:
     lookup = {item.get("key"): item for item in raw_data.get("items", []) + raw_data.get("macro_items", [])}
     cards: list[str] = []
@@ -691,6 +723,7 @@ def create_market_report(
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
     world_board_html = _render_world_board(raw_data)
     theme_board_html = _render_theme_board(raw_data)
+    money_flow_html = _render_money_flow_board(summary)
     chart_board_html = _render_chart_board(raw_data)
     ticker_strip_html = _render_ticker_strip(raw_data)
     metrics_html = _render_metrics(summary.get("metrics", [])[:5])
@@ -1219,6 +1252,29 @@ def create_market_report(
     .theme-leaders strong {{ color: #0f172a; }}
     .theme-card p {{ margin: 12px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }}
     .theme-empty {{ padding: 20px; border-radius: 14px; color: #64748b; background: #f8fafc; }}
+    .flow-headline {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      padding: 16px 18px;
+      border-radius: 16px;
+      color: #e0f2fe;
+      background: linear-gradient(135deg, #082f49, #0f172a);
+    }}
+    .flow-headline small {{ color: #7dd3fc; font-size: 13px; font-weight: 900; }}
+    .flow-headline strong {{ font-size: 20px; text-align: right; }}
+    .flow-board {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }}
+    .flow-card {{ display: grid; gap: 7px; min-height: 118px; padding: 16px; border: 1px solid #cbd5e1; border-left: 6px solid #64748b; border-radius: 15px; background: #fff; }}
+    .flow-card.bull {{ border-left-color: #16a34a; background: #f0fdf4; }}
+    .flow-card.bear {{ border-left-color: #dc2626; background: #fef2f2; }}
+    .flow-card.unavailable {{ color: #64748b; background: #f8fafc; }}
+    .flow-card span {{ color: #64748b; font-size: 13px; font-weight: 900; }}
+    .flow-card strong {{ color: #0f172a; font-size: 19px; }}
+    .flow-card em {{ color: #475569; font-size: 13px; font-style: normal; line-height: 1.45; }}
+    .flow-note {{ margin: 14px 2px 0; color: #64748b; font-size: 13px; line-height: 1.6; }}
+    .flow-empty {{ padding: 20px; border-radius: 14px; color: #64748b; background: #f8fafc; }}
     .chart-board {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2070,6 +2126,23 @@ def create_market_report(
         padding: 14px;
         margin-bottom: 12px;
       }}
+      .flow-headline {{
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+      }}
+      .flow-headline strong {{
+        font-size: 18px;
+        line-height: 1.45;
+        text-align: left;
+      }}
+      .flow-board {{
+        grid-template-columns: 1fr;
+      }}
+      .flow-card {{
+        min-height: 0;
+        padding: 14px;
+      }}
       .hero-layout {{
         grid-template-columns: 1fr;
       }}
@@ -2243,6 +2316,11 @@ def create_market_report(
       {visual_signal_html}
       <h3>騰落ヒートマップ</h3>
       {market_heatmap_html}
+    </section>
+
+    <section class="panel">
+      <h2>足元のお金の流れ</h2>
+      {money_flow_html}
     </section>
 
     <section class="panel">

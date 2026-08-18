@@ -295,6 +295,247 @@ def _theme_summary(raw_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_money_flow_snapshot(raw_data: dict[str, Any], thresholds: dict[str, Any]) -> dict[str, Any]:
+    all_items = [*raw_data.get("items", []), *raw_data.get("macro_items", [])]
+    lookup = {
+        str(item.get("key")): item
+        for item in all_items
+        if item.get("status") == "ok" and isinstance(item.get("change_pct"), (int, float))
+    }
+    rows: list[dict[str, Any]] = []
+    moderate_up = float(thresholds.get("moderate_up_pct", 0.3))
+    moderate_down = float(thresholds.get("moderate_down_pct", -0.3))
+    is_intraday = raw_data.get("series_mode") == "intraday"
+
+    def changes(keys: list[str]) -> list[tuple[str, float]]:
+        return [(key, float(lookup[key]["change_pct"])) for key in keys if key in lookup]
+
+    def date_basis(keys_with_changes: list[tuple[str, float]]) -> str:
+        dates = sorted({str(lookup[key].get("as_of")) for key, _ in keys_with_changes if lookup[key].get("as_of")})
+        if not dates:
+            return "未確認"
+        if len(dates) == 1:
+            return dates[0]
+        return f"{dates[0]}〜{dates[-1]}"
+
+    global_keys = (
+        ["DOW_FUT", "SP500_FUT", "NASDAQ100_FUT", "RUSSELL_FUT", "NIKKEI_FUT"]
+        if is_intraday
+        else ["DOW", "SP500", "NASDAQ", "RUSSELL2000", "FTSE100", "DAX", "HANGSENG", "KOSPI"]
+    )
+    global_label = "株価先物" if is_intraday else "世界株"
+    global_basis = "時間外" if is_intraday else "日足"
+    global_date_label = "基準時刻" if is_intraday else "基準日"
+    global_changes = changes(global_keys)
+    global_state = "unavailable"
+    if len(global_changes) >= 3:
+        values = [value for _, value in global_changes]
+        average = sum(values) / len(values)
+        up_breadth = len([value for value in values if value > 0]) / len(values) * 100
+        down_breadth = len([value for value in values if value < 0]) / len(values) * 100
+        if average >= moderate_up and up_breadth >= 60:
+            global_state = "risk_on"
+            signal = "株価先物優勢" if is_intraday else "株式優勢"
+            direction = "bull"
+        elif average <= moderate_down and down_breadth >= 60:
+            global_state = "risk_off"
+            signal = "株価先物劣勢" if is_intraday else "株式回避"
+            direction = "bear"
+        else:
+            global_state = "selective"
+            signal = "全面移動より選別"
+            direction = "neutral"
+        global_date_text = date_basis(global_changes)
+        rows.append(
+            {
+                "key": "global_equity",
+                "label": global_label,
+                "signal": signal,
+                "direction": direction,
+                "evidence": f"{global_basis}{len(values)}指数平均{average:+.2f}% / 上昇{up_breadth:.0f}% / 下落{down_breadth:.0f}% / {global_date_label}{global_date_text}",
+                "status": "verified",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "key": "global_equity",
+                "label": global_label,
+                "signal": "未確認",
+                "direction": "neutral",
+                "evidence": f"取得{len(global_changes)}/3以上必要",
+                "status": "unavailable",
+            }
+        )
+
+    japan_keys = ["NIKKEI_FUT"] if is_intraday else ["NIKKEI225", "TOPIX"]
+    required_japan_count = 1 if is_intraday else 2
+    japan_changes = changes(japan_keys)
+    if len(japan_changes) == required_japan_count:
+        japan_average = sum(value for _, value in japan_changes) / len(japan_changes)
+        japan_labels = "・".join(str(lookup[key].get("label", key)) for key, _ in japan_changes)
+        japan_date_text = date_basis(japan_changes)
+        japan_signal = "日経先物優勢" if is_intraday and japan_average >= moderate_up else "日経先物劣勢" if is_intraday and japan_average <= moderate_down else "日経先物横ばい" if is_intraday else "日本株優勢" if japan_average >= moderate_up else "日本株劣勢" if japan_average <= moderate_down else "日本株横ばい"
+        rows.append(
+            {
+                "key": "japan_equity",
+                "label": "日本株時間外" if is_intraday else "日本株",
+                "signal": japan_signal,
+                "direction": "bull" if japan_average >= moderate_up else "bear" if japan_average <= moderate_down else "neutral",
+                "evidence": f"{'時間外' if is_intraday else '日足'} {japan_labels} {japan_average:+.2f}% / {'基準時刻' if is_intraday else '基準日'}{japan_date_text}",
+                "status": "verified",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "key": "japan_equity",
+                "label": "日本株時間外" if is_intraday else "日本株",
+                "signal": "未確認",
+                "direction": "neutral",
+                "evidence": f"取得{len(japan_changes)}/{required_japan_count}",
+                "status": "unavailable",
+            }
+        )
+
+    nasdaq_key = "NASDAQ100_FUT" if is_intraday else "NASDAQ"
+    russell_key = "RUSSELL_FUT" if is_intraday else "RUSSELL2000"
+    nasdaq = lookup.get(nasdaq_key)
+    russell = lookup.get(russell_key)
+    rotation_signal = "未確認"
+    if nasdaq and russell:
+        difference = float(nasdaq["change_pct"]) - float(russell["change_pct"])
+        if difference >= 0.4:
+            rotation_signal = "大型成長株優位"
+        elif difference <= -0.4:
+            rotation_signal = "小型株優位"
+        else:
+            rotation_signal = "成長・小型の差は限定"
+        rows.append(
+            {
+                "key": "equity_rotation",
+                "label": "株式内ローテーション",
+                "signal": rotation_signal,
+                "direction": "neutral",
+                "evidence": f"{'NASDAQ100先物' if is_intraday else 'NASDAQ'} {nasdaq['change_pct']:+.2f}% / {'Russell先物' if is_intraday else 'Russell2000'} {russell['change_pct']:+.2f}% / 差{difference:+.2f}pt",
+                "status": "verified",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "key": "equity_rotation",
+                "label": "株式内ローテーション",
+                "signal": "未確認",
+                "direction": "neutral",
+                "evidence": "NASDAQ系またはRussell系が未確認",
+                "status": "unavailable",
+            }
+        )
+
+    vix = lookup.get("VIX")
+    gold = lookup.get("GOLD")
+    cross_evidence = []
+    if vix:
+        cross_evidence.append(f"VIX {vix['change_pct']:+.2f}%")
+    if gold:
+        cross_evidence.append(f"金 {gold['change_pct']:+.2f}%")
+    if cross_evidence:
+        if vix and float(vix["change_pct"]) >= 3:
+            cross_signal = "警戒需要が強まる価格反応"
+            cross_direction = "bear"
+        elif vix and float(vix["change_pct"]) <= -3:
+            cross_signal = "リスク許容が改善する価格反応"
+            cross_direction = "bull"
+        else:
+            cross_signal = "逃避需要は限定または混在"
+            cross_direction = "neutral"
+        rows.append(
+            {
+                "key": "risk_assets",
+                "label": "警戒・逃避",
+                "signal": cross_signal,
+                "direction": cross_direction,
+                "evidence": " / ".join(cross_evidence),
+                "status": "verified",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "key": "risk_assets",
+                "label": "警戒・逃避",
+                "signal": "未確認",
+                "direction": "neutral",
+                "evidence": "VIX・金が未確認",
+                "status": "unavailable",
+            }
+        )
+
+    usd_jpy = lookup.get("USDJPY")
+    if usd_jpy:
+        fx_change = float(usd_jpy["change_pct"])
+        rows.append(
+            {
+                "key": "fx_flow",
+                "label": "為替",
+                "signal": "円安方向" if fx_change > 0 else "円高方向" if fx_change < 0 else "横ばい",
+                "direction": "neutral",
+                "evidence": f"USD/JPY {fx_change:+.2f}%",
+                "status": "verified",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "key": "fx_flow",
+                "label": "為替",
+                "signal": "未確認",
+                "direction": "neutral",
+                "evidence": "USD/JPYが未確認",
+                "status": "unavailable",
+            }
+        )
+
+    primary_theme = (raw_data.get("themes", {}) or {}).get("primary")
+    theme_signal = ""
+    if primary_theme and primary_theme.get("status") == "ok":
+        theme_change = primary_theme.get("average_change_pct")
+        theme_change_text = f"{theme_change:+.2f}%" if isinstance(theme_change, (int, float)) else "未確認"
+        theme_signal = f"{primary_theme.get('label', 'テーマ株')}主導"
+        rows.append(
+            {
+                "key": "theme_rotation",
+                "label": "テーマ株",
+                "signal": theme_signal,
+                "direction": primary_theme.get("direction", "neutral"),
+                "evidence": f"5分足基準 平均{theme_change_text} / {primary_theme.get('signal', '監視')} / {primary_theme.get('as_of', '時刻未確認')}",
+                "status": "verified",
+            }
+        )
+
+    headline_parts = []
+    if global_state in {"risk_on", "risk_off", "selective"}:
+        headline_parts.append(str(rows[0]["signal"]))
+    else:
+        headline_parts.append(f"{global_label}は未確認")
+    if rotation_signal != "未確認":
+        headline_parts.append(rotation_signal)
+    if theme_signal:
+        headline_parts.append(theme_signal)
+
+    verified_count = len([row for row in rows if row.get("status") == "verified"])
+    return {
+        "status": "ok" if verified_count >= 2 else "unavailable",
+        "headline": " / ".join(headline_parts[:3]),
+        "rows": rows,
+        "verified_count": verified_count,
+        "total_count": len(rows),
+        "label": "価格から見た資金方向",
+        "actual_flow_note": "投資主体別売買、ETF純流入額、先物建玉の実額は未確認です。" + ("時間外先物・VIX・為替・商品の相対強弱を、資金方向の代理指標として表示します。" if is_intraday else "日足指数と取得時刻付きテーマ株の相対強弱を、資金方向の代理指標として表示します。"),
+    }
+
+
 def _deep_summary_lines(
     raw_data: dict[str, Any],
     tone: str,
@@ -915,6 +1156,7 @@ def build_summary(
     speaker_name, speaker_role = _speaker_profile(task_id, task_config)
     tone = _market_tone(raw_data, thresholds)
     theme_summary = _theme_summary(raw_data)
+    money_flow = build_money_flow_snapshot(raw_data, thresholds)
     theme_title, theme_subtitle = _theme_block(task_id, task_config, tone, generated_at)
 
     lines: list[str] = []
@@ -961,8 +1203,10 @@ def build_summary(
     )
 
     commentary = _build_commentary(task_id, task_config, raw_data, thresholds)
+    if money_flow.get("status") == "ok":
+        commentary = [f"資金方向: {money_flow['headline']}", *commentary][:3]
     if theme_summary["theme_primary"]:
-        commentary = [f"テーマ株: {theme_summary['theme_headline']}", *commentary][:3]
+        commentary = [*commentary[:2], f"テーマ株: {theme_summary['theme_headline']}"]
     research_lines = _research_lines(raw_data)
     research_theme_lines = _research_theme_lines(raw_data)
     research_confidence_line = _research_confidence_line(raw_data)
@@ -1039,5 +1283,7 @@ def build_summary(
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),
         "series_mode": raw_data.get("series_mode", "daily"),
+        "money_flow": money_flow,
+        "money_flow_headline": money_flow.get("headline", "未確認"),
         **theme_summary,
     }

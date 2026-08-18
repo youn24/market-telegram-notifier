@@ -285,6 +285,9 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         "",
         f"要点: {teacher_text}",
     ]
+    if summary.get("money_flow", {}).get("status") == "ok":
+        flow_text = html.escape(clip_message_text(str(summary.get("money_flow_headline", "未確認")), 80))
+        message_parts.append(f"資金方向: {flow_text}")
     if summary.get("theme_primary"):
         theme_text = html.escape(clip_message_text(str(summary.get("theme_headline", "テーマ株: 未確認")), 80))
         message_parts.append(f"注目テーマ: {theme_text}")
