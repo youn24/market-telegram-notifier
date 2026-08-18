@@ -763,7 +763,7 @@ def _draw_dark_memo(
     price_patterns = summary.get("price_pattern_candidates", []) or []
     comments = [
         f"資金方向: {summary.get('money_flow_headline')}",
-        f"複合足型: {summary.get('price_pattern_headline')}",
+        f"株価注意報: {summary.get('price_pattern_headline')}",
         f"先生: {summary.get('conclusion_text', '大きな偏りは未確認です。')}",
         f"カワウソ: {student_text or '先生、いま最優先で見る数字はどれですか？'}",
         f"実戦: {action}",
@@ -771,7 +771,7 @@ def _draw_dark_memo(
     if money_flow.get("status") != "ok":
         comments.pop(0)
     if not price_patterns:
-        comments = [comment for comment in comments if not comment.startswith("複合足型:")]
+        comments = [comment for comment in comments if not comment.startswith("株価注意報:")]
     text_y = y + 82
     text_right = x + width - 300
     for comment in comments[:3]:

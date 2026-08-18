@@ -797,6 +797,56 @@ def _render_manual_references(task_config: dict[str, Any]) -> str:
     )
 
 
+def _render_youtube_reference(raw_data: dict[str, Any]) -> str:
+    snapshot = raw_data.get("youtube", {}) or {}
+    if snapshot.get("status") == "disabled":
+        return ""
+
+    items = snapshot.get("items", []) or []
+    note = _safe(str(snapshot.get("note", "YouTube新着情報は未確認です。")))
+    if not items:
+        return "\n".join(
+            [
+                '<section class="panel youtube-panel">',
+                '<div class="youtube-heading"><h2>YouTube新着参考情報</h2><span>未確認</span></div>',
+                f'<div class="youtube-empty">{note}</div>',
+                "</section>",
+            ]
+        )
+
+    cards: list[str] = []
+    for item in items[:3]:
+        url = _safe(str(item.get("url", "")))
+        title = _safe(str(item.get("title", "タイトル未確認")))
+        channel = _safe(str(item.get("channel", "チャンネル未確認")))
+        published = _safe(str(item.get("published", "公開日時未確認")))
+        title_html = f'<a href="{url}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
+        cards.append(
+            "\n".join(
+                [
+                    '<article class="youtube-card">',
+                    '  <div class="youtube-card-meta"><span>外部見解</span><b>公開フィード確認済み</b></div>',
+                    f'  <h3>{title_html}</h3>',
+                    f'  <p>{channel}</p>',
+                    f'  <small>公開: {published}</small>',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(
+        [
+            '<section class="panel youtube-panel">',
+            '<div class="youtube-heading"><h2>YouTube新着参考情報</h2><span>売買根拠には未採用</span></div>',
+            '<p class="section-note">動画のタイトル・公開日時・URLだけを掲載します。動画内の予想や数値は、公式資料や価格データで再確認できるまで分析の事実根拠に使いません。</p>',
+            '<div class="youtube-grid">',
+            *cards,
+            "</div>",
+            f'<p class="youtube-note">{note}</p>',
+            "</section>",
+        ]
+    )
+
+
 def _copy_if_exists(source: Path | None, destination: Path) -> str | None:
     if source is None or not source.exists():
         return None
@@ -851,6 +901,7 @@ def create_market_report(
     research_html = _render_research_cards(summary)
     source_focus_html = _render_source_focus(summary)
     manual_references_html = _render_manual_references(task_config)
+    youtube_reference_html = _render_youtube_reference(raw_data)
     nikkei225jp_html = _render_nikkei225jp_reference(raw_data)
     data_quality = summary.get("data_quality", {}) or {}
     quality_unavailable = "、".join(data_quality.get("unavailable_labels", [])) or "なし"
@@ -2017,6 +2068,21 @@ def create_market_report(
     .manual-reference strong {{ font-size: 16px; }}
     .manual-reference a {{ color: #0f4c81; text-decoration: none; }}
     .manual-reference span {{ color: var(--sub); font-size: 13px; font-weight: 700; line-height: 1.65; }}
+    .youtube-panel {{ border-top: 7px solid #ef4444; }}
+    .youtube-heading {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }}
+    .youtube-heading h2 {{ margin: 0; }}
+    .youtube-heading span {{ border-radius: 999px; background: #fee2e2; color: #991b1b; padding: 7px 12px; font-size: 12px; font-weight: 900; }}
+    .youtube-grid {{ display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }}
+    .youtube-card {{ border: 1px solid #fecaca; border-radius: 17px; background: linear-gradient(180deg, #fff7f7, #ffffff); padding: 16px; }}
+    .youtube-card-meta {{ display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }}
+    .youtube-card-meta span, .youtube-card-meta b {{ border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 900; }}
+    .youtube-card-meta span {{ background: #ef4444; color: #ffffff; }}
+    .youtube-card-meta b {{ background: #e2e8f0; color: #334155; }}
+    .youtube-card h3 {{ margin: 0 0 10px; font-size: 18px; line-height: 1.55; }}
+    .youtube-card h3 a {{ color: #7f1d1d; text-decoration: none; }}
+    .youtube-card p {{ margin: 0 0 7px; color: #334155; font-weight: 900; }}
+    .youtube-card small, .youtube-note {{ color: #64748b; font-size: 12px; font-weight: 700; line-height: 1.6; }}
+    .youtube-empty {{ border-radius: 14px; background: #f8fafc; color: #64748b; padding: 18px; font-weight: 800; }}
     .research-themes {{
       display: flex;
       flex-wrap: wrap;
@@ -2512,7 +2578,7 @@ def create_market_report(
     </section>
 
     <section class="panel">
-      <h2>窓開け・高値圏・底打ちの複合確認</h2>
+      <h2>個別株 株価注意報</h2>
       <p class="section-note">日足の形だけでなく、高安値圏・出来高・終値位置・翌日確認を組み合わせます。</p>
       {price_pattern_html}
     </section>
@@ -2525,6 +2591,8 @@ def create_market_report(
     {source_focus_html}
 
     {manual_references_html}
+
+    {youtube_reference_html}
 
     <section class="panel">
       <h2>材料検索・ニュース根拠</h2>

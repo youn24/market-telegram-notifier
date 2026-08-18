@@ -32,6 +32,7 @@ japan_close:
   category: japan_market
   include_themes: true
   include_price_patterns: true
+  include_youtube: true
   additional_research_queries:
     - "日本株 決算 大引け後 上方修正 下方修正"
     - "日本株 増配 減配 自社株買い 適時開示"

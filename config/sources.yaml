@@ -227,6 +227,15 @@ price_patterns:
   high_zone_distance_pct: 5.0
   low_zone_distance_pct: 7.0
 
+youtube:
+  enabled: true
+  timeout_seconds: 15
+  max_age_hours: 72
+  max_items: 3
+  channels:
+    - channel_id: "UC5Qgc-tEFmm5iQX5tUy6TyA"
+      label: "株リアルライブ（あす上がる株）"
+
 macro:
   fred_series:
     US10Y:

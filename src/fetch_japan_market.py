@@ -11,6 +11,7 @@ import yfinance as yf
 from fetch_macro import fetch_macro_snapshot
 from fetch_nikkei225jp import fetch_nikkei225jp_snapshot
 from fetch_themes import fetch_theme_snapshot
+from fetch_youtube import fetch_youtube_snapshot
 
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -174,6 +175,7 @@ def fetch_japan_market_snapshot(
         }
     themes = fetch_theme_snapshot(sources) if task_config.get("include_themes", False) else {"status": "disabled", "themes": []}
     price_patterns = themes.get("price_patterns", {"status": "disabled", "candidates": []}) if task_config.get("include_price_patterns", False) else {"status": "disabled", "candidates": []}
+    youtube = fetch_youtube_snapshot(sources) if task_config.get("include_youtube", False) else {"status": "disabled", "items": []}
 
     return {
         "task_id": task_id,
@@ -183,5 +185,6 @@ def fetch_japan_market_snapshot(
         "nikkei225jp": fetch_nikkei225jp_snapshot(sources),
         "themes": themes,
         "price_patterns": price_patterns,
+        "youtube": youtube,
         "highlights": highlights,
     }
