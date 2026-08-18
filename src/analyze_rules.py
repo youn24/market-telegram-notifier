@@ -120,6 +120,30 @@ def _research_lines(raw_data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _source_focus_lines(raw_data: dict[str, Any]) -> list[str]:
+    focus = raw_data.get("research", {}).get("source_focus", {}) or {}
+    if not focus:
+        return []
+    if focus.get("status") != "ok":
+        return [str(focus.get("note", "指定媒体の公開見出しは未確認です。"))]
+
+    direction_labels = {
+        "positive": "好材料語あり",
+        "caution": "注意材料語あり",
+        "mixed": "好悪混在",
+        "neutral": "方向未分類",
+    }
+    lines: list[str] = []
+    for item in focus.get("items", [])[:5]:
+        direction = direction_labels.get(str(item.get("headline_direction", "neutral")), "方向未分類")
+        categories = "・".join(str(value) for value in item.get("material_categories", [])[:2]) or "未分類"
+        lines.append(
+            f"{direction} / {categories}: {item.get('title', '未確認')}"
+            f"（{item.get('source', '媒体未確認')} / {item.get('published', '日時未確認')}）"
+        )
+    return lines
+
+
 def _research_confidence_line(raw_data: dict[str, Any]) -> str:
     confidence = raw_data.get("research", {}).get("confidence", {})
     label = confidence.get("label", "低")
@@ -1222,6 +1246,7 @@ def build_summary(
     research_coverage_lines = _research_coverage_lines(raw_data)
     research_evidence_lines = _research_evidence_lines(raw_data)
     research_evidence_briefs = _research_evidence_briefs(raw_data)
+    source_focus_lines = _source_focus_lines(raw_data)
     nikkei225jp_lines = _nikkei225jp_lines(raw_data)
     student_name = "カワウソくん"
     dialogue = [
@@ -1288,6 +1313,8 @@ def build_summary(
         "research_evidence_lines": research_evidence_lines,
         "research_evidence_briefs": research_evidence_briefs,
         "research_evidence_packs": raw_data.get("research", {}).get("evidence_packs", []),
+        "source_focus": raw_data.get("research", {}).get("source_focus", {}),
+        "source_focus_lines": source_focus_lines,
         "nikkei225jp_lines": nikkei225jp_lines,
         "deep_summary_lines": deep_summary_lines,
         "research_note": raw_data.get("research", {}).get("note", "材料検索は未確認"),

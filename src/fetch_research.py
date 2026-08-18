@@ -87,15 +87,22 @@ def _fetch_google_news(query: str, sources: dict[str, Any]) -> list[dict[str, An
 def _queries_for_task(task_config: dict[str, Any], sources: dict[str, Any]) -> list[str]:
     explicit = task_config.get("research_queries")
     if explicit:
-        return [str(query) for query in explicit if str(query).strip()]
+        queries = [str(query).strip() for query in explicit if str(query).strip()]
+    else:
+        research_config = sources.get("research", {})
+        default_queries = research_config.get("default_queries", {})
+        if task_config.get("focus") == "macro":
+            queries = list(default_queries.get("macro", []))
+        else:
+            category = str(task_config.get("category", "default"))
+            queries = list(default_queries.get(category, default_queries.get("default", [])))
 
-    research_config = sources.get("research", {})
-    default_queries = research_config.get("default_queries", {})
-    if task_config.get("focus") == "macro":
-        return list(default_queries.get("macro", []))
-
-    category = str(task_config.get("category", "default"))
-    return list(default_queries.get(category, default_queries.get("default", [])))
+    additions = [
+        str(query).strip()
+        for query in task_config.get("additional_research_queries", [])
+        if str(query).strip()
+    ]
+    return list(dict.fromkeys([*queries, *additions]))
 
 
 def _followup_queries_for_missing(missing_categories: list[str], sources: dict[str, Any]) -> list[str]:
@@ -341,6 +348,74 @@ def _research_confidence(items: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _headline_direction(title: str, sources: dict[str, Any]) -> tuple[str, list[str]]:
+    keyword_map = sources.get("research", {}).get("headline_direction_keywords", {})
+    positive = _contains_any(title, [str(value) for value in keyword_map.get("positive", [])])
+    caution = _contains_any(title, [str(value) for value in keyword_map.get("caution", [])])
+    if positive and caution:
+        return "mixed", [*positive, *caution][:4]
+    if positive:
+        return "positive", positive[:4]
+    if caution:
+        return "caution", caution[:4]
+    return "neutral", []
+
+
+def _source_focus_snapshot(
+    ranked_items: list[dict[str, Any]],
+    task_config: dict[str, Any],
+    sources: dict[str, Any],
+) -> dict[str, Any]:
+    focus_config = task_config.get("source_focus")
+    if not isinstance(focus_config, dict):
+        return {}
+
+    label = str(focus_config.get("label", "指定媒体の材料"))
+    source_names = [str(value).strip() for value in focus_config.get("sources", []) if str(value).strip()]
+    query_terms = [str(value).strip() for value in focus_config.get("query_terms", []) if str(value).strip()]
+    max_items = max(1, int(focus_config.get("max_items", 5)))
+    max_age_hours = max(1.0, float(focus_config.get("max_age_hours", 30)))
+    focused: list[dict[str, Any]] = []
+
+    for item in ranked_items:
+        source_name = str(item.get("source", ""))
+        age_hours = item.get("age_hours")
+        if not any(name.lower() in source_name.lower() for name in source_names):
+            continue
+        if query_terms and not any(term.lower() in str(item.get("query", "")).lower() for term in query_terms):
+            continue
+        # 専用枠では発行日時を確認できた新しい見出しだけを採用する。
+        if not isinstance(age_hours, (int, float)) or age_hours > max_age_hours:
+            continue
+        focused_item = dict(item)
+        direction, matched = _headline_direction(str(item.get("title", "")), sources)
+        focused_item["headline_direction"] = direction
+        focused_item["headline_direction_keywords"] = matched
+        focused.append(focused_item)
+        if len(focused) >= max_items:
+            break
+
+    if not focused:
+        return {
+            "status": "unavailable",
+            "label": label,
+            "items": [],
+            "note": f"{label}は未確認です。公開見出し・媒体名・発行日時を確認できた記事がありません。",
+        }
+
+    direction_counts = {
+        direction: len([item for item in focused if item.get("headline_direction") == direction])
+        for direction in ("positive", "caution", "mixed", "neutral")
+    }
+    return {
+        "status": "ok",
+        "label": label,
+        "items": focused,
+        "direction_counts": direction_counts,
+        "note": "Google News RSSで確認できた公開見出しだけを分類しています。記事本文の内容や未掲載情報は推測しません。",
+    }
+
+
 def _required_categories(task_config: dict[str, Any], sources: dict[str, Any]) -> list[str]:
     category_names = list(sources.get("research", {}).get("material_categories", {}).keys())
     if not category_names:
@@ -522,6 +597,7 @@ def fetch_research_snapshot(
             "items": [],
             "coverage": coverage,
             "evidence_packs": _research_evidence_packs([], [], coverage),
+            "source_focus": _source_focus_snapshot([], task_config, sources),
             "note": "検索クエリが未設定のため未確認",
         }
 
@@ -550,6 +626,7 @@ def fetch_research_snapshot(
     coverage["followup_triggered"] = bool(followup_queries)
     coverage["followup_queries"] = followup_queries
     evidence_packs = _research_evidence_packs(items, ranked_items, coverage)
+    source_focus = _source_focus_snapshot(ranked_items, task_config, sources)
 
     if not items:
         return {
@@ -558,6 +635,7 @@ def fetch_research_snapshot(
             "items": [],
             "coverage": coverage,
             "evidence_packs": evidence_packs,
+            "source_focus": source_focus,
             "note": "ニュース検索は未確認: " + (" / ".join(errors[:2]) if errors else "取得なし"),
         }
 
@@ -568,6 +646,7 @@ def fetch_research_snapshot(
         "confidence": _research_confidence(items),
         "coverage": coverage,
         "evidence_packs": evidence_packs,
+        "source_focus": source_focus,
         "top_keywords": _keyword_list(task_config, sources)[:8],
         "note": "Google News RSSで検索。ヘッドラインは材料確認用で、数値は推測しません。",
     }

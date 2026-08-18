@@ -77,6 +77,7 @@ def _summary_evidence_text(summary: dict[str, Any]) -> str:
         "research_evidence_lines",
         "research_theme_lines",
         "research_lines",
+        "source_focus_lines",
         "nikkei225jp_lines",
         "money_flow_headline",
         "price_pattern_headline",
@@ -160,6 +161,8 @@ def _build_prompt(summary: dict[str, Any]) -> str:
             *_as_lines(summary.get("research_theme_lines", []), 3, 90),
             "Top headlines, context only:",
             *_as_lines(summary.get("research_lines", []), 2 if not include_detail else 5, 120),
+            "Source-focused public headlines only; do not infer article-body facts:",
+            *_as_lines(summary.get("source_focus_lines", []), 5, 140),
             "Nikkei225jp reference:",
             *_as_lines(summary.get("nikkei225jp_lines", []), 5, 120),
             *(

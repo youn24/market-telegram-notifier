@@ -719,6 +719,84 @@ def _render_research_cards(summary: dict[str, Any]) -> str:
     return "\n".join(cards)
 
 
+def _render_source_focus(summary: dict[str, Any]) -> str:
+    focus = summary.get("source_focus", {}) or {}
+    if not focus:
+        return ""
+    label = _safe(focus.get("label", "指定媒体の材料"))
+    note = _safe(focus.get("note", "公開見出しだけを確認します。"))
+    items = focus.get("items", [])
+    if focus.get("status") != "ok" or not items:
+        return (
+            '<section class="panel source-focus-panel">'
+            f'<div class="source-focus-heading"><h2>{label}</h2><span>未確認</span></div>'
+            f'<div class="research-card unavailable">{note}</div></section>'
+        )
+
+    direction_labels = {
+        "positive": "好材料語あり",
+        "caution": "注意材料語あり",
+        "mixed": "好悪混在",
+        "neutral": "方向未分類",
+    }
+    cards: list[str] = []
+    for item in items[:5]:
+        direction = str(item.get("headline_direction", "neutral"))
+        direction_label = direction_labels.get(direction, "方向未分類")
+        categories = "・".join(str(value) for value in item.get("material_categories", [])[:2]) or "未分類"
+        url = str(item.get("url", ""))
+        title = _safe(item.get("title", "未確認"))
+        title_html = f'<a href="{_safe(url)}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
+        cards.append(
+            "\n".join(
+                [
+                    f'<article class="source-focus-card {direction}">',
+                    f'  <div class="source-focus-meta"><span>{_safe(direction_label)}</span><b>{_safe(categories)}</b></div>',
+                    f'  <div class="source-focus-title">{title_html}</div>',
+                    f'  <div class="research-meta">{_safe(item.get("source", "媒体未確認"))} / {_safe(item.get("published", "日時未確認"))}</div>',
+                    "</article>",
+                ]
+            )
+        )
+    return "\n".join(
+        [
+            '<section class="panel source-focus-panel">',
+            f'<div class="source-focus-heading"><h2>{label}</h2><span>公開見出しのみ</span></div>',
+            f'<p class="section-note">{note}</p>',
+            '<div class="source-focus-grid">',
+            *cards,
+            "</div></section>",
+        ]
+    )
+
+
+def _render_manual_references(task_config: dict[str, Any]) -> str:
+    references = task_config.get("manual_references", [])
+    if not references:
+        return ""
+    cards: list[str] = []
+    for item in references[:4]:
+        if not isinstance(item, dict):
+            continue
+        label = _safe(item.get("label", "参考ページ"))
+        url = _safe(item.get("url", ""))
+        note = _safe(item.get("note", "手動で確認します。"))
+        link = f'<a href="{url}" target="_blank" rel="noopener noreferrer">{label}</a>' if url else label
+        cards.append(f'<article class="manual-reference"><strong>{link}</strong><span>{note}</span></article>')
+    if not cards:
+        return ""
+    return "\n".join(
+        [
+            '<section class="panel">',
+            '<h2>公式・参考ページ（手動確認）</h2>',
+            '<p class="section-note">自動取得が許可されていない情報は取得せず、確認用リンクだけを掲載します。</p>',
+            '<div class="manual-reference-grid">',
+            *cards,
+            "</div></section>",
+        ]
+    )
+
+
 def _copy_if_exists(source: Path | None, destination: Path) -> str | None:
     if source is None or not source.exists():
         return None
@@ -771,6 +849,8 @@ def create_market_report(
     hero_illustration_html = _render_hero_illustration(summary, copied_elephant, copied_otter)
     scenario_html = _render_bullets(summary.get("scenarios", [])[:3], "scenario-item")
     research_html = _render_research_cards(summary)
+    source_focus_html = _render_source_focus(summary)
+    manual_references_html = _render_manual_references(task_config)
     nikkei225jp_html = _render_nikkei225jp_reference(raw_data)
     data_quality = summary.get("data_quality", {}) or {}
     quality_unavailable = "、".join(data_quality.get("unavailable_labels", [])) or "なし"
@@ -1880,6 +1960,63 @@ def create_market_report(
       display: grid;
       gap: 8px;
     }}
+    .source-focus-panel {{
+      border-color: #f5c96a;
+      background: linear-gradient(145deg, #fffdf7, #fff8e7);
+    }}
+    .source-focus-heading {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }}
+    .source-focus-heading h2 {{ margin: 0; }}
+    .source-focus-heading span {{
+      border: 1px solid #f59e0b;
+      border-radius: 999px;
+      background: #fffbeb;
+      color: #92400e;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }}
+    .source-focus-grid {{ display: grid; gap: 9px; }}
+    .source-focus-card {{
+      border: 1px solid #fde68a;
+      border-left: 7px solid #64748b;
+      border-radius: 15px;
+      background: #fff;
+      padding: 14px 16px;
+    }}
+    .source-focus-card.positive {{ border-left-color: #16a34a; }}
+    .source-focus-card.caution {{ border-left-color: #dc2626; }}
+    .source-focus-card.mixed {{ border-left-color: #f59e0b; }}
+    .source-focus-meta {{ display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 6px; }}
+    .source-focus-meta span, .source-focus-meta b {{
+      border-radius: 999px;
+      background: #f8fafc;
+      color: #334155;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .source-focus-title {{ font-size: 17px; font-weight: 900; line-height: 1.65; }}
+    .source-focus-title a {{ color: #78350f; text-decoration: none; }}
+    .manual-reference-grid {{ display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }}
+    .manual-reference {{
+      border: 1px solid #cbd5e1;
+      border-left: 7px solid #475569;
+      border-radius: 15px;
+      background: #f8fafc;
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+    }}
+    .manual-reference strong {{ font-size: 16px; }}
+    .manual-reference a {{ color: #0f4c81; text-decoration: none; }}
+    .manual-reference span {{ color: var(--sub); font-size: 13px; font-weight: 700; line-height: 1.65; }}
     .research-themes {{
       display: flex;
       flex-wrap: wrap;
@@ -2384,6 +2521,10 @@ def create_market_report(
       <h2>先生の分析要約</h2>
       {analysis_summary_html}
     </section>
+
+    {source_focus_html}
+
+    {manual_references_html}
 
     <section class="panel">
       <h2>材料検索・ニュース根拠</h2>

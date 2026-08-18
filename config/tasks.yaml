@@ -32,6 +32,19 @@ japan_close:
   category: japan_market
   include_themes: true
   include_price_patterns: true
+  additional_research_queries:
+    - "日本株 決算 大引け後 上方修正 下方修正"
+    - "日本株 増配 減配 自社株買い 適時開示"
+    - "日本株 今日 好悪材料 開示情報"
+  source_focus:
+    label: "大引け後の公開材料"
+    sources: ["日本経済新聞", "ロイター", "ブルームバーグ", "NHK", "時事通信", "会社四季報オンライン", "日本取引所グループ", "Reuters", "Bloomberg"]
+    query_terms: ["大引け後", "増配", "自社株買い", "開示情報"]
+    max_items: 5
+    max_age_hours: 30
+  manual_references:
+    - {label: "株探ニュース（手動確認）", url: "https://kabutan.jp/news/", note: "株探の規約に従い自動取得せず、必要時に手動で確認します。"}
+    - {label: "JPX 適時開示情報閲覧サービス", url: "https://www.jpx.co.jp/listing/disclosure/01.html", note: "上場会社の正式な適時開示を確認します。"}
   title: "17:00 日本市場 大引け後・需給チェック"
   run_at: "17:00"
   weekdays: [1, 2, 3, 4, 5]
