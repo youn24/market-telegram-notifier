@@ -42,12 +42,36 @@ class AfterHoursTests(unittest.TestCase):
         )
         self.assertTrue(result["triggered"])
         self.assertEqual(result["primary"]["key"], "NASDAQ100_FUT")
-        self.assertGreaterEqual(result["primary"]["score"], 75)
+        self.assertGreaterEqual(result["primary"]["score"], 80)
+        self.assertGreaterEqual(result["primary"]["corroboration_count"], 2)
 
     def test_isolated_move_does_not_trigger(self) -> None:
         result = evaluate_after_hours_signals([_item("NIKKEI_FUT", -1.2, hits=1)])
         self.assertFalse(result["triggered"])
-        self.assertLess(result["primary"]["score"], 75)
+        self.assertEqual(result["primary"]["corroboration_count"], 0)
+
+    def test_high_score_with_only_one_confirmation_does_not_trigger(self) -> None:
+        result = evaluate_after_hours_signals(
+            [
+                _item("NASDAQ100_FUT", -1.5),
+                _item("SP500_FUT", -0.8),
+            ]
+        )
+        self.assertGreaterEqual(result["primary"]["score"], 80)
+        self.assertEqual(result["primary"]["corroboration_count"], 1)
+        self.assertFalse(result["triggered"])
+
+    def test_multiple_confirmations_without_persistence_do_not_trigger(self) -> None:
+        result = evaluate_after_hours_signals(
+            [
+                _item("NASDAQ100_FUT", -1.5, hits=1),
+                _item("SP500_FUT", -0.8, hits=1),
+                _item("DOW_FUT", -0.6, hits=1),
+                _item("VIX", 6.0, kind="volatility", threshold=5.0, hits=1),
+            ]
+        )
+        self.assertGreaterEqual(result["primary"]["corroboration_count"], 2)
+        self.assertFalse(result["triggered"])
 
     def test_below_threshold_does_not_trigger(self) -> None:
         result = evaluate_after_hours_signals([_item("SP500_FUT", 0.8)])

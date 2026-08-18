@@ -197,17 +197,26 @@ def _valid(items: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
 
 
 def _same_direction_count(items: list[dict[str, Any]], keys: set[str], direction: int, minimum: float) -> int:
-    return sum(
-        1
+    return len(_same_direction_keys(items, keys, direction, minimum))
+
+
+def _same_direction_keys(items: list[dict[str, Any]], keys: set[str], direction: int, minimum: float) -> set[str]:
+    return {
+        str(item.get("key"))
         for item in items
         if item.get("key") in keys
         and item.get("status") == "ok"
         and _direction(item.get("change_pct")) == direction
         and abs(float(item.get("change_pct", 0))) >= minimum
-    )
+    }
 
 
-def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
+def evaluate_after_hours_signals(
+    items: list[dict[str, Any]],
+    minimum_score: int = 80,
+    minimum_corroborations: int = 2,
+    minimum_persistence_hits: int = 2,
+) -> dict[str, Any]:
     equity_keys = {"NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "RUSSELL_FUT"}
     adr_keys = {"ADR_TM", "ADR_SONY", "ADR_MUFG", "ADR_SMFG", "ADR_MIZUHO", "ADR_HONDA"}
     candidates: list[dict[str, Any]] = []
@@ -224,6 +233,7 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
         score = 55  # 品質・鮮度を通過し、急変基準も超えた状態。
         reasons = [f"{item['label']}が基準{threshold:.1f}%を超え{change:+.2f}%"]
         contradictions: list[str] = []
+        corroboration_keys: set[str] = set()
         persistence_hits = int(item.get("persistence_hits", 0))
         if persistence_hits >= 3:
             score += 20
@@ -236,13 +246,16 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
 
         kind = str(item.get("kind", "other"))
         if item.get("key") in equity_keys:
-            peers = _same_direction_count(items, equity_keys - {str(item.get("key"))}, direction, 0.35)
+            peer_keys = _same_direction_keys(items, equity_keys - {str(item.get("key"))}, direction, 0.35)
+            peers = len(peer_keys)
             if peers >= 2:
                 score += 20
                 reasons.append(f"他の株価先物{peers}本も同方向")
+                corroboration_keys.update(peer_keys)
             elif peers == 1:
                 score += 10
                 reasons.append("他の株価先物1本が同方向")
+                corroboration_keys.update(peer_keys)
             else:
                 contradictions.append("他の主要先物の追随は未確認")
 
@@ -251,32 +264,40 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
             if isinstance(vix_change, (int, float)) and abs(vix_change) >= 3 and _direction(vix_change) == -direction:
                 score += 10
                 reasons.append("VIXも株価先物と整合")
+                corroboration_keys.add("VIX")
             elif isinstance(vix_change, (int, float)) and abs(vix_change) >= 3 and _direction(vix_change) == direction:
                 score -= 8
                 contradictions.append("VIXの方向が株価先物と不一致")
 
             if item.get("key") == "NIKKEI_FUT":
-                adr_breadth = _same_direction_count(items, adr_keys, direction, 1.0)
+                aligned_adr_keys = _same_direction_keys(items, adr_keys, direction, 1.0)
+                adr_breadth = len(aligned_adr_keys)
                 if adr_breadth >= 2:
                     score += 10
                     reasons.append(f"日本株ADR {adr_breadth}銘柄も同方向")
+                    corroboration_keys.update(aligned_adr_keys)
 
         elif item.get("key") == "VIX":
-            opposite_futures = _same_direction_count(items, equity_keys, -direction, 0.35)
+            opposite_future_keys = _same_direction_keys(items, equity_keys, -direction, 0.35)
+            opposite_futures = len(opposite_future_keys)
             if opposite_futures >= 2:
                 score += 20
                 reasons.append(f"株価先物{opposite_futures}本が逆方向で整合")
+                corroboration_keys.update(opposite_future_keys)
             else:
                 contradictions.append("株価先物との整合は弱い")
         elif kind == "adr":
-            adr_breadth = _same_direction_count(items, adr_keys - {str(item.get("key"))}, direction, 1.0)
+            aligned_adr_keys = _same_direction_keys(items, adr_keys - {str(item.get("key"))}, direction, 1.0)
+            adr_breadth = len(aligned_adr_keys)
             nikkei = _valid(items, "NIKKEI_FUT")
             if adr_breadth >= 2:
                 score += 15
                 reasons.append(f"他の日本株ADR {adr_breadth}銘柄も同方向")
+                corroboration_keys.update(aligned_adr_keys)
             if nikkei and _direction(nikkei.get("change_pct")) == direction and abs(float(nikkei.get("change_pct", 0))) >= 0.5:
                 score += 10
                 reasons.append("日経先物も同方向")
+                corroboration_keys.add("NIKKEI_FUT")
             if adr_breadth == 0:
                 contradictions.append("他の日本株ADRの追随は未確認")
         elif kind == "fx":
@@ -284,24 +305,34 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
             if nikkei and _direction(nikkei.get("change_pct")) == direction and abs(float(nikkei.get("change_pct", 0))) >= 0.5:
                 score += 15
                 reasons.append("日経先物も同方向")
+                corroboration_keys.add("NIKKEI_FUT")
             else:
                 contradictions.append("日本株先物との方向一致は未確認")
         elif kind == "commodity":
             if abs(change) >= threshold * 2:
                 score += 15
                 reasons.append("通常の通知基準の2倍を超える変動")
-            equities_opposite = _same_direction_count(items, equity_keys, -direction, 0.35)
+            opposite_equity_keys = _same_direction_keys(items, equity_keys, -direction, 0.35)
+            equities_opposite = len(opposite_equity_keys)
             if item.get("key") == "GOLD" and equities_opposite >= 2:
                 score += 10
                 reasons.append("株価先物と逆方向でリスク回避の動きが整合")
+                corroboration_keys.update(opposite_equity_keys)
 
         score = max(0, min(100, score))
+        persistence_confirmed = persistence_hits >= minimum_persistence_hits
+        corroboration_count = len(corroboration_keys)
+        eligible = score >= minimum_score and persistence_confirmed and corroboration_count >= minimum_corroborations
         candidates.append(
             {
                 "key": item.get("key"),
                 "label": item.get("label"),
                 "change_pct": float(change),
                 "score": score,
+                "eligible": eligible,
+                "persistence_hits": persistence_hits,
+                "corroboration_count": corroboration_count,
+                "corroboration_keys": sorted(corroboration_keys),
                 "reasons": reasons,
                 "contradictions": contradictions,
                 "as_of": item.get("as_of"),
@@ -310,12 +341,13 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
         )
 
     candidates.sort(key=lambda signal: (signal["score"], abs(signal["change_pct"])), reverse=True)
-    primary = candidates[0] if candidates else None
-    triggered = bool(primary and primary["score"] >= 75)
+    eligible_candidates = [candidate for candidate in candidates if candidate["eligible"]]
+    primary = eligible_candidates[0] if eligible_candidates else candidates[0] if candidates else None
+    triggered = bool(eligible_candidates)
     if not primary:
         note = "通知基準を超える変動は確認されませんでした"
     elif not triggered:
-        note = f"{primary['label']}は急変基準を超えましたが、関連市場の確認が不足しています"
+        note = f"{primary['label']}は急変基準を超えましたが、継続性または独立した確認材料が不足しています"
     else:
         note = f"{primary['label']}の急変を複数条件で確認しました"
 
@@ -323,10 +355,12 @@ def evaluate_after_hours_signals(items: list[dict[str, Any]]) -> dict[str, Any]:
         "triggered": triggered,
         "primary": primary,
         "candidates": candidates[:5],
-        "confirmation_label": "高" if primary and primary["score"] >= 85 else "中" if triggered else "不足",
+        "confirmation_label": "高" if triggered else "不足",
         "note": note,
-        "minimum_score": 75,
-        "disclaimer": "確認度はデータ鮮度と市場整合性の評価であり、売買の勝率ではありません。",
+        "minimum_score": minimum_score,
+        "minimum_corroborations": minimum_corroborations,
+        "minimum_persistence_hits": minimum_persistence_hits,
+        "disclaimer": "通知は急変基準、継続性、独立した確認材料2件以上、総合点をすべて満たす場合だけ行います。確認度は勝率ではありません。",
     }
 
 
@@ -366,7 +400,12 @@ def fetch_after_hours_snapshot(
                 }
 
     items = [items_by_key[key] for key in selected_keys if key in items_by_key]
-    alert = evaluate_after_hours_signals(items)
+    alert = evaluate_after_hours_signals(
+        items,
+        minimum_score=int(source_config.get("minimum_score", 80)),
+        minimum_corroborations=int(source_config.get("minimum_corroborations", 2)),
+        minimum_persistence_hits=int(source_config.get("minimum_persistence_hits", 2)),
+    )
     return {
         "task_id": task_id,
         "section": "after_hours",

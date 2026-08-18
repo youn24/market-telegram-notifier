@@ -70,6 +70,9 @@ japan_market:
 
 after_hours:
   max_age_minutes: 75
+  minimum_score: 80
+  minimum_corroborations: 2
+  minimum_persistence_hits: 2
   symbols:
     NIKKEI_FUT:
       ticker: "NKD=F"
