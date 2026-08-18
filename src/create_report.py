@@ -495,6 +495,35 @@ def _render_theme_board(raw_data: dict[str, Any]) -> str:
     return '<div class="theme-board">' + "\n".join(cards) + "</div>"
 
 
+def _render_price_pattern_board(raw_data: dict[str, Any]) -> str:
+    snapshot = raw_data.get("price_patterns", {}) or {}
+    candidates = snapshot.get("candidates", []) or []
+    if not candidates:
+        return '<div class="pattern-empty">複合条件を満たすローソク足候補は確認されませんでした。</div>'
+
+    cards = []
+    for item in candidates:
+        direction = item.get("direction", "neutral")
+        evidence_html = "".join(f"<li>{_safe(str(value))}</li>" for value in item.get("evidence", [])[:5])
+        cards.append(
+            "\n".join(
+                [
+                    f'<article class="pattern-card {direction}">',
+                    '  <div class="pattern-card-head">',
+                    f'    <div><small>{_safe(str(item.get("ticker", "未確認")))}</small><h3>{_safe(str(item.get("label", "未確認")))}</h3></div>',
+                    f'    <strong>確認度 {_safe(str(item.get("score", "未確認")))}</strong>',
+                    "  </div>",
+                    f'  <div class="pattern-signal">{_safe(str(item.get("signal", "未確認")))}</div>',
+                    f'  <ul>{evidence_html}</ul>',
+                    f'  <p>基準日 {_safe(str(item.get("as_of", "未確認")))} / {_safe(str(item.get("source", "未確認")))}</p>',
+                    "</article>",
+                ]
+            )
+        )
+    note = _safe(str(snapshot.get("note", "単独の足型では通知しません。")))
+    return f'<div class="pattern-board">{"".join(cards)}</div><p class="pattern-note">{note} 確認度は勝率ではありません。</p>'
+
+
 def _render_money_flow_board(summary: dict[str, Any]) -> str:
     flow = summary.get("money_flow", {}) or {}
     rows = flow.get("rows", []) or []
@@ -723,6 +752,7 @@ def create_market_report(
     digest_tiles_html = _render_digest_tiles(summary, raw_data)
     world_board_html = _render_world_board(raw_data)
     theme_board_html = _render_theme_board(raw_data)
+    price_pattern_html = _render_price_pattern_board(raw_data)
     money_flow_html = _render_money_flow_board(summary)
     chart_board_html = _render_chart_board(raw_data)
     ticker_strip_html = _render_ticker_strip(raw_data)
@@ -1252,6 +1282,18 @@ def create_market_report(
     .theme-leaders strong {{ color: #0f172a; }}
     .theme-card p {{ margin: 12px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }}
     .theme-empty {{ padding: 20px; border-radius: 14px; color: #64748b; background: #f8fafc; }}
+    .pattern-board {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }}
+    .pattern-card {{ padding: 17px; border: 1px solid #cbd5e1; border-top: 6px solid #64748b; border-radius: 16px; background: #fff; }}
+    .pattern-card.bull {{ border-top-color: #16a34a; background: linear-gradient(180deg, #f0fdf4, #fff 45%); }}
+    .pattern-card.bear {{ border-top-color: #dc2626; background: linear-gradient(180deg, #fef2f2, #fff 45%); }}
+    .pattern-card-head {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }}
+    .pattern-card-head small {{ color: #64748b; font-size: 12px; font-weight: 900; }}
+    .pattern-card-head h3 {{ margin: 2px 0 0; color: #0f172a; font-size: 21px; }}
+    .pattern-card-head strong {{ flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; color: #0f172a; background: #e2e8f0; font-size: 13px; }}
+    .pattern-signal {{ margin: 14px 0 10px; color: #0f172a; font-size: 19px; font-weight: 1000; }}
+    .pattern-card ul {{ margin: 0; padding-left: 20px; color: #334155; line-height: 1.65; }}
+    .pattern-card p, .pattern-note {{ color: #64748b; font-size: 13px; line-height: 1.55; }}
+    .pattern-empty {{ padding: 20px; border-radius: 14px; color: #64748b; background: #f8fafc; }}
     .flow-headline {{
       display: flex;
       align-items: center;
@@ -2143,6 +2185,9 @@ def create_market_report(
         min-height: 0;
         padding: 14px;
       }}
+      .pattern-board {{ grid-template-columns: 1fr; }}
+      .pattern-card {{ padding: 14px; }}
+      .pattern-card-head h3 {{ font-size: 19px; }}
       .hero-layout {{
         grid-template-columns: 1fr;
       }}
@@ -2327,6 +2372,12 @@ def create_market_report(
       <h2>テーマ株・主導銘柄</h2>
       <p class="section-note">単独銘柄ではなく、複数銘柄の平均騰落と同方向比率で確認します。</p>
       {theme_board_html}
+    </section>
+
+    <section class="panel">
+      <h2>窓開け・高値圏・底打ちの複合確認</h2>
+      <p class="section-note">日足の形だけでなく、高安値圏・出来高・終値位置・翌日確認を組み合わせます。</p>
+      {price_pattern_html}
     </section>
 
     <section class="panel">

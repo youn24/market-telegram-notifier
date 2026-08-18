@@ -215,6 +215,18 @@ theme_stocks:
         - {ticker: "1803.T", label: "清水建設"}
         - {ticker: "1812.T", label: "鹿島"}
 
+price_patterns:
+  enabled: true
+  max_age_days: 4
+  minimum_history_days: 45
+  minimum_score: 85
+  max_results: 5
+  gap_threshold_pct: 2.0
+  breakout_volume_ratio: 1.5
+  confirmation_volume_ratio: 1.2
+  high_zone_distance_pct: 5.0
+  low_zone_distance_pct: 7.0
+
 macro:
   fred_series:
     US10Y:

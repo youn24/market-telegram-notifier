@@ -1157,6 +1157,13 @@ def build_summary(
     tone = _market_tone(raw_data, thresholds)
     theme_summary = _theme_summary(raw_data)
     money_flow = build_money_flow_snapshot(raw_data, thresholds)
+    price_pattern_snapshot = raw_data.get("price_patterns", {}) or {}
+    price_pattern_candidates = price_pattern_snapshot.get("candidates", []) or []
+    price_pattern_headline = (
+        f"{price_pattern_candidates[0].get('label', '銘柄未確認')}: {price_pattern_candidates[0].get('signal', '未確認')}（確認度{price_pattern_candidates[0].get('score', '未確認')}）"
+        if price_pattern_candidates
+        else "該当なし"
+    )
     theme_title, theme_subtitle = _theme_block(task_id, task_config, tone, generated_at)
 
     lines: list[str] = []
@@ -1207,6 +1214,8 @@ def build_summary(
         commentary = [f"資金方向: {money_flow['headline']}", *commentary][:3]
     if theme_summary["theme_primary"]:
         commentary = [*commentary[:2], f"テーマ株: {theme_summary['theme_headline']}"]
+    if price_pattern_candidates:
+        commentary = [f"複合足型: {price_pattern_headline}", *commentary][:3]
     research_lines = _research_lines(raw_data)
     research_theme_lines = _research_theme_lines(raw_data)
     research_confidence_line = _research_confidence_line(raw_data)
@@ -1285,5 +1294,8 @@ def build_summary(
         "series_mode": raw_data.get("series_mode", "daily"),
         "money_flow": money_flow,
         "money_flow_headline": money_flow.get("headline", "未確認"),
+        "price_pattern_candidates": price_pattern_candidates,
+        "price_pattern_headline": price_pattern_headline,
+        "price_pattern_note": price_pattern_snapshot.get("note", "ローソク足候補は未確認"),
         **theme_summary,
     }

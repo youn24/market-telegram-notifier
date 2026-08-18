@@ -173,6 +173,7 @@ def fetch_japan_market_snapshot(
             "supply_demand": unavailable_items.get("supply_demand", "未確認"),
         }
     themes = fetch_theme_snapshot(sources) if task_config.get("include_themes", False) else {"status": "disabled", "themes": []}
+    price_patterns = themes.get("price_patterns", {"status": "disabled", "candidates": []}) if task_config.get("include_price_patterns", False) else {"status": "disabled", "candidates": []}
 
     return {
         "task_id": task_id,
@@ -181,5 +182,6 @@ def fetch_japan_market_snapshot(
         "macro_items": fetch_macro_snapshot(task_config, sources),
         "nikkei225jp": fetch_nikkei225jp_snapshot(sources),
         "themes": themes,
+        "price_patterns": price_patterns,
         "highlights": highlights,
     }
