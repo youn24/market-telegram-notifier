@@ -231,10 +231,20 @@ youtube:
   enabled: true
   timeout_seconds: 15
   max_age_hours: 72
-  max_items: 3
+  max_items: 4
+  max_items_per_channel: 2
+  topic_keywords:
+    日本株: ["日本株", "日経", "TOPIX", "個別株"]
+    米国株: ["米国株", "NYダウ", "NASDAQ", "S&P500"]
+    為替: ["為替", "ドル円", "円高", "円安", "FX"]
+    金利・金融政策: ["金利", "FRB", "FOMC", "日銀", "CPI", "雇用統計"]
+    商品・暗号資産: ["原油", "GOLD", "金相場", "ビットコイン", "暗号資産"]
+    決算・企業材料: ["決算", "業績", "増配", "自社株買い", "銘柄"]
   channels:
     - channel_id: "UC5Qgc-tEFmm5iQX5tUy6TyA"
       label: "株リアルライブ（あす上がる株）"
+    - channel_id: "UCOX7X_ddhi1oXurSbJsk45Q"
+      label: "NOBU塾"
 
 macro:
   fred_series:

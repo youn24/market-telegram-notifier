@@ -300,6 +300,13 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     if summary.get("price_pattern_candidates"):
         pattern_text = html.escape(clip_message_text(str(summary.get("price_pattern_headline", "未確認")), 80))
         message_parts.append(f"株価注意報: {pattern_text}")
+    youtube_items = raw_data.get("youtube", {}).get("items", []) or []
+    if youtube_items:
+        channels = list(dict.fromkeys(str(item.get("channel", "")).strip() for item in youtube_items))
+        channel_text = "・".join(channel for channel in channels if channel)
+        message_parts.append(
+            f"参考動画: {html.escape(channel_text or '公開チャンネル')}の新着を詳細ページに掲載"
+        )
     if link:
         safe_link = html.escape(link, quote=True)
         message_parts.extend(["", f'<a href="{safe_link}">詳細はこちら</a>'])

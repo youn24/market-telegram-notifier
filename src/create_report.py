@@ -815,11 +815,13 @@ def _render_youtube_reference(raw_data: dict[str, Any]) -> str:
         )
 
     cards: list[str] = []
-    for item in items[:3]:
+    for item in items:
         url = _safe(str(item.get("url", "")))
         title = _safe(str(item.get("title", "タイトル未確認")))
         channel = _safe(str(item.get("channel", "チャンネル未確認")))
         published = _safe(str(item.get("published", "公開日時未確認")))
+        topics = [_safe(str(topic)) for topic in item.get("topics", []) if str(topic).strip()]
+        topic_line = f'  <small class="youtube-topics">参考観点: {" / ".join(topics)}</small>' if topics else ""
         title_html = f'<a href="{url}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
         cards.append(
             "\n".join(
@@ -828,6 +830,7 @@ def _render_youtube_reference(raw_data: dict[str, Any]) -> str:
                     '  <div class="youtube-card-meta"><span>外部見解</span><b>公開フィード確認済み</b></div>',
                     f'  <h3>{title_html}</h3>',
                     f'  <p>{channel}</p>',
+                    topic_line,
                     f'  <small>公開: {published}</small>',
                     "</article>",
                 ]
@@ -837,7 +840,7 @@ def _render_youtube_reference(raw_data: dict[str, Any]) -> str:
         [
             '<section class="panel youtube-panel">',
             '<div class="youtube-heading"><h2>YouTube新着参考情報</h2><span>売買根拠には未採用</span></div>',
-            '<p class="section-note">動画のタイトル・公開日時・URLだけを掲載します。動画内の予想や数値は、公式資料や価格データで再確認できるまで分析の事実根拠に使いません。</p>',
+            '<p class="section-note">株リアルライブとNOBU塾の公開タイトル・公開日時・URLだけを掲載します。動画内の予想や数値は、公式資料や価格データで再確認できるまで分析の事実根拠に使いません。</p>',
             '<div class="youtube-grid">',
             *cards,
             "</div>",
@@ -2082,6 +2085,7 @@ def create_market_report(
     .youtube-card h3 a {{ color: #7f1d1d; text-decoration: none; }}
     .youtube-card p {{ margin: 0 0 7px; color: #334155; font-weight: 900; }}
     .youtube-card small, .youtube-note {{ color: #64748b; font-size: 12px; font-weight: 700; line-height: 1.6; }}
+    .youtube-card .youtube-topics {{ display: block; margin: 5px 0 8px; border-left: 3px solid #ef4444; padding-left: 8px; color: #475569; }}
     .youtube-empty {{ border-radius: 14px; background: #f8fafc; color: #64748b; padding: 18px; font-weight: 800; }}
     .research-themes {{
       display: flex;

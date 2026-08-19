@@ -46,6 +46,8 @@ japan_close:
   manual_references:
     - {label: "株探ニュース（手動確認）", url: "https://kabutan.jp/news/", note: "株探の規約に従い自動取得せず、必要時に手動で確認します。"}
     - {label: "JPX 適時開示情報閲覧サービス", url: "https://www.jpx.co.jp/listing/disclosure/01.html", note: "上場会社の正式な適時開示を確認します。"}
+    - {label: "日本銀行 金融政策決定会合", url: "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm", note: "政策決定、主な意見、議事要旨を公式資料で確認します。"}
+    - {label: "財務省 外国為替平衡操作", url: "https://www.mof.go.jp/policy/international_policy/reference/feio/index.html", note: "為替介入の実績は観測記事ではなく財務省公表値で確認します。"}
   title: "17:00 日本市場 大引け後・需給チェック"
   run_at: "17:00"
   weekdays: [1, 2, 3, 4, 5]
