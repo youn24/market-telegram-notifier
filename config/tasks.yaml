@@ -62,6 +62,15 @@ after_hours_alert:
   weekdays: [1, 2, 3, 4, 5, 6, 7]
   chart_symbols: ["NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "RUSSELL_FUT", "VIX", "USDJPY", "GOLD", "WTI", "ADR_TM", "ADR_SONY", "ADR_MUFG", "ADR_SMFG", "ADR_MIZUHO", "ADR_HONDA"]
 
+us_session_alert:
+  enabled: true
+  category: after_hours
+  source_key: us_session
+  title: "米国市場 急変・日経影響シグナル"
+  run_at: ""
+  weekdays: [1, 2, 3, 4, 5, 6]
+  chart_symbols: ["SP500", "NASDAQ", "SOXX", "VIX", "NVDA", "AVGO", "AMD", "ARM", "MSFT", "AAPL", "AMZN", "META", "GOOGL", "TSLA", "NIKKEI_FUT", "USDJPY", "ADR_TM", "ADR_SONY", "ADR_MUFG", "ADR_SMFG", "ADR_MIZUHO", "ADR_HONDA"]
+
 earnings_close:
   enabled: false
   category: earnings

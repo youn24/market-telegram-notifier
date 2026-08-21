@@ -165,6 +165,35 @@ after_hours:
       threshold_pct: 3.0
       anomaly_limit_pct: 40.0
 
+us_session:
+  max_age_minutes: 25
+  minimum_score: 85
+  minimum_corroborations: 2
+  minimum_persistence_hits: 3
+  symbols:
+    SP500: {ticker: "^GSPC", label: "S&P500", kind: us_index, threshold_pct: 1.25, anomaly_limit_pct: 12.0}
+    NASDAQ: {ticker: "^IXIC", label: "NASDAQ", kind: us_index, threshold_pct: 1.5, anomaly_limit_pct: 15.0}
+    SOXX: {ticker: "SOXX", label: "米国半導体ETF", kind: us_sector, threshold_pct: 2.0, anomaly_limit_pct: 20.0}
+    VIX: {ticker: "^VIX", label: "VIX", kind: volatility, threshold_pct: 8.0, anomaly_limit_pct: 60.0}
+    NVDA: {ticker: "NVDA", label: "NVIDIA", kind: us_stock, threshold_pct: 4.0, anomaly_limit_pct: 35.0, group: semiconductor, nikkei_link: "アドバンテスト・東京エレクトロン等"}
+    AVGO: {ticker: "AVGO", label: "Broadcom", kind: us_stock, threshold_pct: 4.0, anomaly_limit_pct: 35.0, group: semiconductor, nikkei_link: "半導体関連"}
+    AMD: {ticker: "AMD", label: "AMD", kind: us_stock, threshold_pct: 4.5, anomaly_limit_pct: 40.0, group: semiconductor, nikkei_link: "半導体関連"}
+    ARM: {ticker: "ARM", label: "Arm", kind: us_stock, threshold_pct: 5.0, anomaly_limit_pct: 45.0, group: semiconductor, nikkei_link: "ソフトバンクグループ"}
+    MSFT: {ticker: "MSFT", label: "Microsoft", kind: us_stock, threshold_pct: 3.0, anomaly_limit_pct: 25.0, group: megatech, nikkei_link: "AI・データセンター関連"}
+    AAPL: {ticker: "AAPL", label: "Apple", kind: us_stock, threshold_pct: 3.0, anomaly_limit_pct: 25.0, group: megatech, nikkei_link: "電子部品関連"}
+    AMZN: {ticker: "AMZN", label: "Amazon", kind: us_stock, threshold_pct: 3.5, anomaly_limit_pct: 30.0, group: megatech, nikkei_link: "AI・データセンター関連"}
+    META: {ticker: "META", label: "Meta", kind: us_stock, threshold_pct: 3.5, anomaly_limit_pct: 30.0, group: megatech, nikkei_link: "AI・データセンター関連"}
+    GOOGL: {ticker: "GOOGL", label: "Alphabet", kind: us_stock, threshold_pct: 3.5, anomaly_limit_pct: 30.0, group: megatech, nikkei_link: "AI・データセンター関連"}
+    TSLA: {ticker: "TSLA", label: "Tesla", kind: us_stock, threshold_pct: 5.0, anomaly_limit_pct: 45.0, group: auto, nikkei_link: "自動車・電池関連"}
+    NIKKEI_FUT: {ticker: "NKD=F", label: "日経225先物(CMEドル建て)", kind: equity_future, threshold_pct: 1.0, anomaly_limit_pct: 20.0}
+    USDJPY: {ticker: "JPY=X", label: "USD/JPY", kind: fx, threshold_pct: 0.6, anomaly_limit_pct: 8.0}
+    ADR_TM: {ticker: "TM", label: "トヨタADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+    ADR_SONY: {ticker: "SONY", label: "ソニーADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+    ADR_MUFG: {ticker: "MUFG", label: "三菱UFJ ADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+    ADR_SMFG: {ticker: "SMFG", label: "三井住友FG ADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+    ADR_MIZUHO: {ticker: "MFG", label: "みずほFG ADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+    ADR_HONDA: {ticker: "HMC", label: "ホンダADR", kind: adr, threshold_pct: 3.0, anomaly_limit_pct: 40.0}
+
 theme_stocks:
   enabled: true
   minimum_valid_symbols: 3

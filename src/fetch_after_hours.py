@@ -163,6 +163,8 @@ def _fetch_one(key: str, meta: dict[str, Any], max_age_minutes: int) -> dict[str
             "quality_notes": ["5分足", f"{baseline_label}基準", f"観測遅延 {age_minutes:.0f}分"],
             "baseline_label": baseline_label,
             "comparison_group": "market_return",
+            "group": meta.get("group"),
+            "nikkei_link": meta.get("nikkei_link"),
         }
     except Exception as exc:
         return {
@@ -217,7 +219,7 @@ def evaluate_after_hours_signals(
     minimum_corroborations: int = 2,
     minimum_persistence_hits: int = 2,
 ) -> dict[str, Any]:
-    equity_keys = {"NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "RUSSELL_FUT"}
+    equity_keys = {"NIKKEI_FUT", "SP500_FUT", "NASDAQ100_FUT", "DOW_FUT", "RUSSELL_FUT", "SP500", "NASDAQ", "SOXX"}
     adr_keys = {"ADR_TM", "ADR_SONY", "ADR_MUFG", "ADR_SMFG", "ADR_MIZUHO", "ADR_HONDA"}
     candidates: list[dict[str, Any]] = []
 
@@ -300,6 +302,42 @@ def evaluate_after_hours_signals(
                 corroboration_keys.add("NIKKEI_FUT")
             if adr_breadth == 0:
                 contradictions.append("他の日本株ADRの追随は未確認")
+        elif kind == "us_stock":
+            group = str(item.get("group") or "")
+            peer_keys = {
+                str(peer.get("key"))
+                for peer in items
+                if peer.get("kind") == "us_stock"
+                and peer.get("key") != item.get("key")
+                and str(peer.get("group") or "") == group
+                and peer.get("status") == "ok"
+                and _direction(peer.get("change_pct")) == direction
+                and abs(float(peer.get("change_pct", 0))) >= 1.0
+            }
+            if peer_keys:
+                score += min(15, 5 + len(peer_keys) * 5)
+                reasons.append(f"同業・関連大型株{len(peer_keys)}銘柄も同方向")
+                corroboration_keys.update(peer_keys)
+
+            index_keys = {"NASDAQ", "SP500"}
+            if group == "semiconductor":
+                index_keys.add("SOXX")
+            aligned_indexes = _same_direction_keys(items, index_keys, direction, 0.35)
+            if aligned_indexes:
+                score += 10
+                reasons.append("米国指数・業種指数も同方向")
+                corroboration_keys.update(aligned_indexes)
+
+            nikkei = _valid(items, "NIKKEI_FUT")
+            if nikkei and _direction(nikkei.get("change_pct")) == direction and abs(float(nikkei.get("change_pct", 0))) >= 0.35:
+                score += 10
+                reasons.append("日経先物も同方向")
+                corroboration_keys.add("NIKKEI_FUT")
+            nikkei_link = str(item.get("nikkei_link") or "")
+            if nikkei_link:
+                reasons.append(f"日経関連: {nikkei_link}")
+            if not peer_keys and not aligned_indexes:
+                contradictions.append("同業株・指数の追随は未確認")
         elif kind == "fx":
             nikkei = _valid(items, "NIKKEI_FUT")
             if nikkei and _direction(nikkei.get("change_pct")) == direction and abs(float(nikkei.get("change_pct", 0))) >= 0.5:
@@ -371,7 +409,8 @@ def fetch_after_hours_snapshot(
     rules: dict[str, Any],
 ) -> dict[str, Any]:
     del rules
-    source_config = sources.get("after_hours", {}) or {}
+    source_key = str(task_config.get("source_key", "after_hours"))
+    source_config = sources.get(source_key, {}) or {}
     symbols = source_config.get("symbols", {}) or {}
     max_age_minutes = int(source_config.get("max_age_minutes", DEFAULT_MAX_AGE_MINUTES))
     selected_keys = task_config.get("chart_symbols") or list(symbols)

@@ -1,0 +1,127 @@
+name: US Session Alert
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 13:30-21:00 UTCを30分間隔で確認。NY時間ガードが夏時間・冬時間を判定する。
+    - cron: "0,30 13-21 * * 1-5"
+
+concurrency:
+  group: notification-us-session
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    outputs:
+      sent: ${{ steps.run_task.outputs.sent }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check US regular session
+        id: window
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: python src/us_session_gate.py
+
+      - name: Restore session sent marker
+        id: sent_marker
+        if: github.event_name == 'schedule' && steps.window.outputs.ready == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .notification-marker-us-session
+          key: ${{ steps.window.outputs.cache_key }}
+
+      - name: Decide whether to probe
+        id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          READY: ${{ steps.window.outputs.ready }}
+          CACHE_HIT: ${{ steps.sent_marker.outputs.cache-hit }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] || [[ "$READY" == "true" && "$CACHE_HIT" != "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        if: steps.decision.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install monitoring dependencies
+        if: steps.decision.outputs.run == 'true'
+        run: pip install yfinance==0.2.59 PyYAML==6.0.2
+
+      - name: Check trusted signals
+        id: probe
+        if: steps.decision.outputs.run == 'true'
+        env:
+          MARKET_ALERT_TASK_ID: us_session_alert
+        run: python src/check_after_hours.py
+
+      - name: Install visual dependencies
+        if: steps.probe.outputs.triggered == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+          pip install -r requirements.txt
+
+      - name: Run task
+        id: run_task
+        if: steps.probe.outputs.triggered == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ATTACH_IMAGE: ${{ vars.TELEGRAM_ATTACH_IMAGE }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPORT_BASE_URL: https://youn24.github.io/market-telegram-notifier/
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          AFTER_HOURS_SNAPSHOT_FILE: output/us_session_alert/snapshot.json
+        run: python src/main.py --task us_session_alert
+
+      - name: Create session sent marker
+        if: github.event_name == 'schedule' && steps.run_task.outputs.sent == 'true'
+        run: |
+          mkdir -p .notification-marker-us-session
+          printf '%s\n' "${{ steps.window.outputs.session_key }} us_session_alert" > .notification-marker-us-session/sent.txt
+
+      - name: Save session sent marker
+        if: github.event_name == 'schedule' && steps.run_task.outputs.sent == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .notification-marker-us-session
+          key: ${{ steps.window.outputs.cache_key }}
+
+      - name: Setup Pages
+        if: steps.run_task.outputs.sent == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: steps.run_task.outputs.sent == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: needs.notify.outputs.sent == 'true'
+    environment:
+      name: github-pages
+    needs: notify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

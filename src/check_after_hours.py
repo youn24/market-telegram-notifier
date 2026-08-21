@@ -10,7 +10,8 @@ from fetch_after_hours import fetch_after_hours_snapshot
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SNAPSHOT_PATH = BASE_DIR / "output" / "after_hours_alert" / "snapshot.json"
+TASK_ID = os.getenv("MARKET_ALERT_TASK_ID", "after_hours_alert").strip()
+SNAPSHOT_PATH = BASE_DIR / "output" / TASK_ID / "snapshot.json"
 
 
 def _load_yaml(path: Path) -> dict:
@@ -31,13 +32,13 @@ def main() -> int:
     tasks = _load_yaml(BASE_DIR / "config" / "tasks.yaml")
     sources = _load_yaml(BASE_DIR / "config" / "sources.yaml")
     rules = _load_yaml(BASE_DIR / "config" / "rules.yaml")
-    task = tasks.get("after_hours_alert", {})
+    task = tasks.get(TASK_ID, {})
     if not task.get("enabled", False):
         _write_output({"triggered": "false", "reason": "enabled:false"})
-        print("after_hours_alert: enabled:false")
+        print(f"{TASK_ID}: enabled:false")
         return 0
 
-    snapshot = fetch_after_hours_snapshot("after_hours_alert", task, sources, rules)
+    snapshot = fetch_after_hours_snapshot(TASK_ID, task, sources, rules)
     SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
     SNAPSHOT_PATH.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
     alert = snapshot.get("alert", {})
@@ -49,7 +50,7 @@ def main() -> int:
             "reason": str(alert.get("note", "未確認")).replace("\n", " "),
         }
     )
-    print(f"after_hours_alert: {alert.get('note', '未確認')} triggered={str(triggered).lower()}")
+    print(f"{TASK_ID}: {alert.get('note', '未確認')} triggered={str(triggered).lower()}")
     return 0
 
 
