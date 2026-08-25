@@ -266,11 +266,15 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
 
     link = report_url()
     title = display_title(context.task_config, context.task_id)
-    headline = {
-        "bull": "結論: 強気寄り",
-        "bear": "結論: 警戒",
-        "neutral": "結論: 様子見",
-    }.get(summary.get("market_tone", "neutral"), "結論: 様子見")
+    conclusion_label = clip_message_text(
+        str(summary.get("conclusion_label") or {
+            "bull": "強気寄り",
+            "bear": "警戒",
+            "neutral": "様子見",
+        }.get(summary.get("market_tone", "neutral"), "様子見")),
+        42,
+    )
+    headline = f"判断: {conclusion_label}"
     teacher_line = clip_message_text(
         summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。"),
         90,
