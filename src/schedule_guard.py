@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -37,6 +37,7 @@ def evaluate_schedule(
     weekdays: set[int],
     now: datetime,
     event_name: str,
+    allow_late: bool = False,
 ) -> ScheduleDecision:
     local_now = now.astimezone(JST)
     date_key = local_now.strftime("%Y-%m-%d")
@@ -45,6 +46,14 @@ def evaluate_schedule(
         return ScheduleDecision(True, date_key, "手動実行のため時刻ガードを解除")
 
     if weekdays and local_now.isoweekday() not in weekdays:
+        previous_day = local_now - timedelta(days=1)
+        if allow_late and previous_day.isoweekday() in weekdays:
+            previous_key = previous_day.strftime("%Y-%m-%d")
+            return ScheduleDecision(
+                True,
+                previous_key,
+                "GitHub Actionsの遅延を検知したため前対象日分を救済送信",
+            )
         return ScheduleDecision(False, date_key, "対象曜日ではありません")
 
     current_minutes = local_now.hour * 60 + local_now.minute
@@ -56,6 +65,12 @@ def evaluate_schedule(
     if current_minutes < target_minutes:
         return ScheduleDecision(False, date_key, f"予定時刻{target}より前です")
     if current_minutes > latest_minutes:
+        if allow_late:
+            return ScheduleDecision(
+                True,
+                date_key,
+                f"GitHub Actionsの遅延を検知したため{latest}以降も当日分を救済送信",
+            )
         return ScheduleDecision(False, date_key, f"許容終了時刻{latest}を過ぎています")
 
     return ScheduleDecision(True, date_key, f"送信可能時間帯です: {target}-{latest}")
@@ -76,6 +91,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", required=True, help="送信開始時刻 HH:MM (JST)")
     parser.add_argument("--latest", required=True, help="送信許容終了時刻 HH:MM (JST)")
     parser.add_argument("--weekdays", required=True, help="ISO曜日番号をカンマ区切りで指定")
+    parser.add_argument(
+        "--allow-late",
+        action="store_true",
+        help="GitHub Actionsの遅延時に日次通知を1回だけ救済します",
+    )
     return parser.parse_args()
 
 
@@ -89,6 +109,7 @@ def main() -> int:
         weekdays=weekdays,
         now=datetime.now(JST),
         event_name=os.getenv("GITHUB_EVENT_NAME", "schedule").strip(),
+        allow_late=args.allow_late,
     )
     cache_key = f"notification-{args.task}-{decision.date_key}"
     _write_github_output(

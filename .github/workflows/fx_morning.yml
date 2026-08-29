@@ -31,7 +31,7 @@ jobs:
         id: window
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
-        run: python src/schedule_guard.py --task fx_morning --target 07:00 --latest 08:30 --weekdays 1,2,3,4,5,6
+        run: python src/schedule_guard.py --task fx_morning --target 07:00 --latest 08:30 --weekdays 1,2,3,4,5,6 --allow-late
 
       - name: Restore daily sent marker
         id: sent_marker

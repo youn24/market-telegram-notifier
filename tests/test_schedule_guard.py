@@ -47,6 +47,36 @@ class ScheduleGuardTests(unittest.TestCase):
         self.assertFalse(scheduled.ready)
         self.assertTrue(manual.ready)
 
+    def test_delayed_daily_run_is_recovered_once_for_same_date(self) -> None:
+        decision = evaluate_schedule(
+            task_id="japan_morning",
+            target="09:30",
+            latest="11:00",
+            weekdays={1, 2, 3, 4, 5},
+            now=datetime(2026, 8, 28, 21, 48, tzinfo=JST),
+            event_name="schedule",
+            allow_late=True,
+        )
+
+        self.assertTrue(decision.ready)
+        self.assertEqual(decision.date_key, "2026-08-28")
+        self.assertIn("救済送信", decision.reason)
+
+    def test_friday_close_delayed_to_saturday_uses_friday_marker(self) -> None:
+        decision = evaluate_schedule(
+            task_id="japan_close",
+            target="17:00",
+            latest="18:30",
+            weekdays={1, 2, 3, 4, 5},
+            now=datetime(2026, 8, 29, 5, 41, tzinfo=JST),
+            event_name="schedule",
+            allow_late=True,
+        )
+
+        self.assertTrue(decision.ready)
+        self.assertEqual(decision.date_key, "2026-08-28")
+        self.assertIn("前対象日分", decision.reason)
+
 
 if __name__ == "__main__":
     unittest.main()
