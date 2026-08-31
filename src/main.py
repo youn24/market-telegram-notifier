@@ -29,6 +29,7 @@ from fetch_research import fetch_research_snapshot
 from notify_telegram import send_telegram_notification
 from notification_summary import build_notification_analysis_lines
 from openai_summary import maybe_generate_openai_summary
+from schedule_guard import evaluate_task_eligibility
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
@@ -67,14 +68,11 @@ def load_configs(task_id: str) -> TaskContext:
 
 
 def is_task_runnable(task_config: dict[str, Any], now: datetime) -> tuple[bool, str]:
-    if not task_config.get("enabled", False):
-        return False, "enabled:false のため送信をスキップしました"
-
-    weekdays = task_config.get("weekdays", [])
-    if weekdays and now.isoweekday() not in weekdays:
-        return False, f"本日は対象曜日外です: isoweekday={now.isoweekday()}"
-
-    return True, ""
+    return evaluate_task_eligibility(
+        task_config, now,
+        event_name=os.getenv("GITHUB_EVENT_NAME", "").strip(),
+        delivery_date=os.getenv("NOTIFICATION_DELIVERY_DATE", "").strip(),
+    )
 
 
 def should_ignore_weekday_check() -> bool:
@@ -343,11 +341,7 @@ def main() -> int:
 
     context = load_configs(args.task)
     now = datetime.now(JST)
-    if should_ignore_weekday_check():
-        runnable, reason = True, "workflow_dispatch のため曜日チェックをスキップしました"
-        logging.info(reason)
-    else:
-        runnable, reason = is_task_runnable(context.task_config, now)
+    runnable, reason = is_task_runnable(context.task_config, now)
     if not runnable:
         logging.info(reason)
         _write_github_output({"sent": "false", "reason": reason})

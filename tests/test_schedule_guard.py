@@ -11,12 +11,36 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from schedule_guard import evaluate_schedule
+from schedule_guard import evaluate_schedule, evaluate_task_eligibility
 
 JST = ZoneInfo("Asia/Tokyo")
 
 
 class ScheduleGuardTests(unittest.TestCase):
+    def test_disabled_task_stays_disabled_when_manual(self):
+        now = datetime(2026, 8, 29, 5, 41, tzinfo=JST)
+        for enabled in (False, "false", None):
+            self.assertFalse(evaluate_task_eligibility(
+                {"enabled": enabled}, now, "workflow_dispatch"
+            )[0])
+        self.assertTrue(evaluate_task_eligibility(
+            {"enabled": True, "weekdays": [1]}, now, "workflow_dispatch"
+        )[0])
+
+    def test_delayed_friday_date_reaches_task_gate(self):
+        now = datetime(2026, 8, 29, 5, 41, tzinfo=JST)
+        config = {"enabled": True, "weekdays": [1, 2, 3, 4, 5]}
+        self.assertFalse(evaluate_task_eligibility(config, now, "schedule")[0])
+        self.assertTrue(evaluate_task_eligibility(config, now, "schedule", "2026-08-28")[0])
+        for date in ("2026-08-27", "2026-08-30", "invalid"):
+            self.assertFalse(evaluate_task_eligibility(config, now, "schedule", date)[0])
+
+    def test_workflows_do_not_override_delivery_receipt(self):
+        for name in ("fx_morning", "japan_morning", "japan_close"):
+            text = (ROOT / ".github" / "workflows" / f"{name}.yml").read_text(encoding="utf-8")
+            self.assertNotIn('echo "sent=true"', text)
+            self.assertIn("NOTIFICATION_DELIVERY_DATE: ${{ steps.window.outputs.date }}", text)
+
     def test_scheduled_run_is_allowed_only_inside_window(self) -> None:
         common = {
             "task_id": "japan_morning",

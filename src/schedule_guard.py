@@ -10,6 +10,27 @@ from zoneinfo import ZoneInfo
 JST = ZoneInfo("Asia/Tokyo")
 
 
+def evaluate_task_eligibility(task_config, now, event_name="", delivery_date=""):
+    """Keep enabled authoritative, including manual and delayed runs."""
+    if task_config.get("enabled") is not True:
+        return False, "enabled:false のため送信をスキップしました"
+    if event_name == "workflow_dispatch":
+        return True, "手動実行のため曜日チェックのみ解除"
+    local_date = now.astimezone(JST).date()
+    check_date = local_date
+    if delivery_date:
+        try:
+            check_date = datetime.strptime(delivery_date, "%Y-%m-%d").date()
+        except ValueError:
+            return False, "通知対象日の形式が不正です"
+        if event_name != "schedule" or (local_date - check_date).days not in (0, 1):
+            return False, "通知対象日が許容範囲外です"
+    weekdays = task_config.get("weekdays", [])
+    if weekdays and check_date.isoweekday() not in weekdays:
+        return False, "通知対象日が対象曜日外です"
+    return True, ""
+
+
 @dataclass(frozen=True)
 class ScheduleDecision:
     ready: bool
