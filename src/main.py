@@ -284,7 +284,6 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     teacher_text = html.escape(teacher_line)
     news_lines = build_notification_news_lines(raw_data.get("research", {}))
     message_parts = [
-        "<b>【ようちゃん株式投資通知】</b>",
         f"<b>{html.escape(news_lines[0])}</b>",
         html.escape(news_lines[1]),
         "",
