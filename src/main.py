@@ -27,6 +27,7 @@ from fetch_japan_market import fetch_japan_market_snapshot
 from fetch_nikkei225jp import fetch_nikkei225jp_snapshot
 from fetch_research import fetch_research_snapshot
 from notify_telegram import send_telegram_notification
+from notification_news import build_notification_news_lines
 from notification_summary import build_notification_analysis_lines
 from openai_summary import maybe_generate_openai_summary
 from schedule_guard import evaluate_task_eligibility
@@ -281,7 +282,12 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     headline_text = html.escape(headline)
     generated_at_text = html.escape(str(summary["generated_at"]))
     teacher_text = html.escape(teacher_line)
+    news_lines = build_notification_news_lines(raw_data.get("research", {}))
     message_parts = [
+        "<b>【ようちゃん株式投資通知】</b>",
+        f"<b>{html.escape(news_lines[0])}</b>",
+        html.escape(news_lines[1]),
+        "",
         f"<b>{title_text}</b>",
         f"配信日時: <code>{generated_at_text}</code>",
         f"<b>{headline_text}</b>",
