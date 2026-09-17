@@ -290,30 +290,11 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         f"<b>{title_text}</b>",
         f"配信日時: <code>{generated_at_text}</code>",
         f"<b>{headline_text}</b>",
-        "",
         f"要点: {teacher_text}",
     ]
-    analysis_lines = build_notification_analysis_lines(summary)
+    analysis_lines = build_notification_analysis_lines(summary, limit=2, max_chars=70)
     if analysis_lines:
-        message_parts.extend(
-            ["", "<b>分析要約</b>", *[f"・{html.escape(line)}" for line in analysis_lines]]
-        )
-    if summary.get("money_flow", {}).get("status") == "ok":
-        flow_text = html.escape(clip_message_text(str(summary.get("money_flow_headline", "未確認")), 80))
-        message_parts.append(f"資金方向: {flow_text}")
-    if summary.get("theme_primary"):
-        theme_text = html.escape(clip_message_text(str(summary.get("theme_headline", "テーマ株: 未確認")), 80))
-        message_parts.append(f"注目テーマ: {theme_text}")
-    if summary.get("price_pattern_candidates"):
-        pattern_text = html.escape(clip_message_text(str(summary.get("price_pattern_headline", "未確認")), 80))
-        message_parts.append(f"株価注意報: {pattern_text}")
-    youtube_items = raw_data.get("youtube", {}).get("items", []) or []
-    if youtube_items:
-        channels = list(dict.fromkeys(str(item.get("channel", "")).strip() for item in youtube_items))
-        channel_text = "・".join(channel for channel in channels if channel)
-        message_parts.append(
-            f"参考動画: {html.escape(channel_text or '公開チャンネル')}の新着を詳細ページに掲載"
-        )
+        message_parts.extend(f"・{html.escape(line)}" for line in analysis_lines)
     if link:
         safe_link = html.escape(link, quote=True)
         message_parts.extend(["", f'<a href="{safe_link}">詳細はこちら</a>'])
@@ -321,6 +302,9 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         message_parts.extend(["", "詳細レポートURL: 未確認"])
 
     text = "\n".join(message_parts)
+    if len(text) > 900:
+        message_parts = message_parts[:7] + message_parts[-2:]
+        text = "\n".join(message_parts)
 
     images = [card_path] if should_attach_telegram_image() and card_path is not None and card_path.exists() else []
     return text, images, raw_data

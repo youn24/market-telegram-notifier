@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -19,6 +20,7 @@ def build_notification_news_lines(research: dict[str, Any]) -> list[str]:
             for candidate in items
             if candidate.get("status") == "ok"
             and str(candidate.get("title", "")).strip() not in {"", "未確認"}
+            and _is_recent(candidate)
         ),
         None,
     )
@@ -30,5 +32,19 @@ def build_notification_news_lines(research: dict[str, Any]) -> list[str]:
     topic = categories[0] if categories else keywords[0] if keywords else "市場材料"
     title = _clip(item.get("title"), 72)
     source = _clip(item.get("source") or "媒体未確認", 24)
-    published = _clip(item.get("published") or "日時未確認", 20)
+    published = _clip(item.get("published") or "日時未確認", 20) + " UTC"
     return [f"話題: {_clip(topic, 24)}", f"材料ニュース: {title}（{source} / {published}）"]
+
+
+def _is_recent(item: dict[str, Any]) -> bool:
+    published_ts = item.get("published_ts")
+    if not published_ts:
+        return False
+    try:
+        published = datetime.fromisoformat(str(published_ts))
+        if published.tzinfo is None:
+            return False
+        age_hours = (datetime.now(timezone.utc) - published).total_seconds() / 3600
+        return 0 <= age_hours <= 36
+    except ValueError:
+        return False

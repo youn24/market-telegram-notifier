@@ -36,12 +36,15 @@ def send_telegram_notification(
         _raise_for_status(message_response)
         return
 
+    if len(text) > 1024:
+        raise ValueError("Telegram画像キャプションが上限を超えています")
+
     with first_image.open("rb") as image_file:
         photo_response = requests.post(
             f"{base_url}/sendPhoto",
             data={
                 "chat_id": chat_id,
-                "caption": text[:1024],
+                "caption": text,
                 "parse_mode": "HTML",
             },
             files={"photo": image_file},
