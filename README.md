@@ -216,7 +216,7 @@ japan_midday:
 
 Gemini / OpenAI を使う場合も、トークン消費を抑えるために通知用の重要材料だけを圧縮して送ります。
 
-- `AI_SUMMARY_ENABLED`: `true` なら本番通知でAI要約を使います。止めたい場合は `false` にします。
+- `AI_SUMMARY_ENABLED`: `true` なら本番通知でAI要約を使います。トークン節約のため初期値は `false` で、通常はルール分析を使います。
 - `AI_SUMMARY_ON_DRY_RUN`: `true` にすると `--dry-run` でもAI要約を試します。通常は `false` 推奨です。
 - `AI_SUMMARY_MAX_INPUT_CHARS`: AIへ渡す入力文字数の上限です。初期値は `5200` です。
 - `AI_SUMMARY_MAX_OUTPUT_TOKENS`: AIの出力上限です。初期値は `360` です。

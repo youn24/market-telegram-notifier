@@ -159,7 +159,9 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 
 def should_use_ai_summary(dry_run: bool) -> bool:
-    if not env_flag("AI_SUMMARY_ENABLED", True):
+    # Rule-based analysis is the zero-token default. AI is opt-in so scheduled
+    # notifications do not consume model tokens unless explicitly requested.
+    if not env_flag("AI_SUMMARY_ENABLED", False):
         return False
     if dry_run and not env_flag("AI_SUMMARY_ON_DRY_RUN", False):
         return False
