@@ -103,7 +103,27 @@ def _is_fact_safe_ai_text(text: str, summary: dict[str, Any]) -> bool:
         LOGGER.warning("AI要約を不採用にしました: 未提供の数字 %s", sorted(unknown_numbers))
         return False
 
-    banned_phrases = ["必ず上がる", "必ず下がる", "確実に上がる", "確実に下がる", "断定できます"]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    required_labels = ("結論:", "根拠:", "注視:", "反証:", "未確認:")
+    if len(lines) != len(required_labels) or any(
+        not line.startswith(label) for line, label in zip(lines, required_labels)
+    ):
+        LOGGER.warning("AI要約を不採用にしました: 必須の5行形式ではありません")
+        return False
+    if any(len(line) > 90 for line in lines):
+        LOGGER.warning("AI要約を不採用にしました: 1行が長すぎます")
+        return False
+
+    banned_phrases = [
+        "必ず上がる",
+        "必ず下がる",
+        "確実に上がる",
+        "確実に下がる",
+        "断定できます",
+        "が原因です",
+        "を受けて上昇",
+        "を受けて下落",
+    ]
     if any(phrase in text for phrase in banned_phrases):
         LOGGER.warning("AI要約を不採用にしました: 断定表現を検出")
         return False

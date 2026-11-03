@@ -259,9 +259,15 @@ def _rank_items(items: list[dict[str, Any]], task_config: dict[str, Any], source
         if not _is_excluded_title(str(item.get("title", "")), sources)
         and not _is_excluded_source(str(item.get("source", "")), sources)
     ]
-    fresh_items = [item for item in scored if item.get("age_hours") is None or item.get("age_hours", 0) <= max_age_hours]
-    ranked_source = fresh_items if len(fresh_items) >= min(3, len(scored)) else scored
-    return sorted(ranked_source, key=lambda item: item.get("score", 0), reverse=True)
+    # An undated or stale headline is not reliable enough for a current-market
+    # notification. Keep it out instead of backfilling the list for volume.
+    fresh_items = [
+        item
+        for item in scored
+        if isinstance(item.get("age_hours"), (int, float))
+        and 0 <= float(item["age_hours"]) <= max_age_hours
+    ]
+    return sorted(fresh_items, key=lambda item: item.get("score", 0), reverse=True)
 
 
 def _select_diverse_items(ranked_items: list[dict[str, Any]], sources: dict[str, Any], max_total: int) -> list[dict[str, Any]]:
@@ -269,8 +275,9 @@ def _select_diverse_items(ranked_items: list[dict[str, Any]], sources: dict[str,
     max_per_source = int(research_config.get("max_items_per_source", 2))
     prefer_category_diversity = bool(research_config.get("prefer_category_diversity", True))
     min_score = float(research_config.get("min_score", 20))
-    high_quality_items = [item for item in ranked_items if float(item.get("score", 0)) >= min_score]
-    candidate_items = high_quality_items if len(high_quality_items) >= min(3, max_total) else ranked_items
+    # Fewer trustworthy headlines are preferable to padding the report with
+    # weakly related results.
+    candidate_items = [item for item in ranked_items if float(item.get("score", 0)) >= min_score]
 
     selected: list[dict[str, Any]] = []
     source_counts: dict[str, int] = {}
