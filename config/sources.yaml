@@ -259,7 +259,7 @@ price_patterns:
 youtube:
   enabled: true
   timeout_seconds: 15
-  max_age_hours: 72
+  max_age_hours: 36
   max_items: 4
   max_items_per_channel: 2
   topic_keywords:
@@ -326,9 +326,9 @@ research:
   region: "JP"
   max_items_per_query: 4
   max_total_items: 10
-  freshness_half_life_hours: 18
-  search_window_days: 3
-  max_age_hours: 96
+  freshness_half_life_hours: 8
+  search_window_days: 2
+  max_age_hours: 36
   max_items_per_source: 2
   prefer_category_diversity: true
   enable_followup_research: true

@@ -251,8 +251,8 @@ def _score_item(item: dict[str, Any], keywords: list[str], half_life_hours: floa
 def _rank_items(items: list[dict[str, Any]], task_config: dict[str, Any], sources: dict[str, Any]) -> list[dict[str, Any]]:
     research_config = sources.get("research", {})
     keywords = _keyword_list(task_config, sources)
-    half_life_hours = float(research_config.get("freshness_half_life_hours", 18))
-    max_age_hours = float(research_config.get("max_age_hours", 96))
+    half_life_hours = float(research_config.get("freshness_half_life_hours", 8))
+    max_age_hours = float(research_config.get("max_age_hours", 36))
     scored = [
         _score_item(item, keywords, half_life_hours, sources)
         for item in items

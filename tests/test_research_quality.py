@@ -20,7 +20,7 @@ class ResearchQualityTests(unittest.TestCase):
         self.sources = {
             "research": {
                 "max_age_hours": 36,
-                "freshness_half_life_hours": 18,
+                "freshness_half_life_hours": 8,
                 "min_score": 20,
                 "importance_keywords": {"japan_market": ["上方修正"]},
                 "material_categories": {"業績修正": ["上方修正"]},
@@ -59,6 +59,18 @@ class ResearchQualityTests(unittest.TestCase):
             8,
         )
         self.assertEqual([item["title"] for item in selected], ["採用"])
+
+    def test_newer_equivalent_headline_ranks_first(self) -> None:
+        now = datetime.now(timezone.utc)
+        ranked = _rank_items(
+            [
+                self._item("企業Aが上方修正", now - timedelta(hours=20)),
+                self._item("企業Bが上方修正", now - timedelta(hours=1)),
+            ],
+            self.task,
+            self.sources,
+        )
+        self.assertEqual(ranked[0]["title"], "企業Bが上方修正")
 
 
 if __name__ == "__main__":
