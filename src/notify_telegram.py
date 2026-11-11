@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Iterable
 
@@ -38,6 +40,23 @@ def send_telegram_notification(
 
     if len(text) > 1024:
         raise ValueError("Telegram画像キャプションが上限を超えています")
+
+    if len(images) >= 2:
+        selected = images[:2]
+        media = [
+            {"type": "photo", "media": "attach://photo0", "caption": text, "parse_mode": "HTML"},
+            {"type": "photo", "media": "attach://photo1"},
+        ]
+        with ExitStack() as stack:
+            files = {f"photo{i}": stack.enter_context(path.open("rb")) for i, path in enumerate(selected)}
+            response = requests.post(
+                f"{base_url}/sendMediaGroup",
+                data={"chat_id": chat_id, "media": json.dumps(media, ensure_ascii=False)},
+                files=files,
+                timeout=90,
+            )
+        _raise_for_status(response)
+        return
 
     with first_image.open("rb") as image_file:
         photo_response = requests.post(

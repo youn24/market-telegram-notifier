@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import json
 import sys
 import types
 import unittest
@@ -13,6 +14,21 @@ from notify_telegram import send_telegram_notification
 
 
 class TelegramNotificationTests(unittest.TestCase):
+    def test_two_images_are_sent_as_one_album(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            images = [Path(directory) / "cover.png", Path(directory) / "detail.png"]
+            for image in images:
+                image.write_bytes(b"image")
+            with patch("notify_telegram.requests.post") as post:
+                post.return_value.ok = True
+                send_telegram_notification("test-token", "test-chat", "見出し", images)
+            self.assertEqual(post.call_count, 1)
+            self.assertTrue(post.call_args.args[0].endswith("/sendMediaGroup"))
+            media = json.loads(post.call_args.kwargs["data"]["media"])
+            self.assertEqual(len(media), 2)
+            self.assertEqual(media[0]["caption"], "見出し")
+            self.assertEqual(media[1]["media"], "attach://photo1")
+
     def test_photo_caption_keeps_detail_link_intact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "card.png"

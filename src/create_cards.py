@@ -825,9 +825,59 @@ def create_summary_card(
     if not visual_items:
         draw.text((90, 850), "数値は未確認です", fill="#cbd5e1", font=_load_font(27))
     draw.rounded_rectangle((76, 1140, width - 76, 1222), radius=20, fill="#133053", outline="#3b82f6", width=2)
-    draw.text((110, 1160), "詳しい分析・チャートはリンクから", fill="#e0f2fe", font=_load_font(28, bold=True))
+    draw.text((110, 1160), "画像を開いて2枚目の分析を見る", fill="#e0f2fe", font=_load_font(28, bold=True))
     draw.text((76, 1260), "取得できない情報は未確認として表示", fill="#94a3b8", font=_load_font(20))
 
     path = output_dir / f"{task_id}_card.png"
     image.convert("RGB").save(path, quality=95)
+    return path
+
+
+def create_detail_card(task_id: str, task_config: dict[str, Any], summary: dict[str, Any], raw_data: dict[str, Any], output_dir: Path) -> Path:
+    width, height = 1080, 1600
+    image = Image.new("RGB", (width, height), "#07111e")
+    draw = ImageDraw.Draw(image)
+    draw.text((60, 45), "MARKET ANALYSIS  /  2", fill="#7dd3fc", font=_load_font(24, True))
+    title = str(task_config.get("title", "相場チェック"))
+    for i, line in enumerate(_shorten_text(draw, title, _load_font(38, True), 960, 2)):
+        draw.text((60, 95 + i * 52), line, fill="#f8fafc", font=_load_font(38, True))
+    draw.text((60, 210), f"配信: {summary.get('generated_at', '未確認')}", fill="#cbd5e1", font=_load_font(23))
+    draw.rounded_rectangle((45, 265, 1035, 490), radius=22, fill="#142235", outline="#334155", width=2)
+    draw.text((75, 285), "まず結論", fill="#7dd3fc", font=_load_font(28, True))
+    conclusion = str(summary.get("conclusion_text") or "結論は未確認です。")
+    for i, line in enumerate(_shorten_text(draw, conclusion, _load_font(28, True), 930, 4)):
+        draw.text((75, 335 + i * 37), line, fill="#f8fafc", font=_load_font(28, True))
+    draw.text((60, 525), "注目の数字", fill="#f8fafc", font=_load_font(32, True))
+    items = summary.get("visual_items", [])[:5]
+    for i, item in enumerate(items):
+        y = 585 + i * 65
+        name = _shorten_text(draw, str(item.get("label", "未確認")), _load_font(26, True), 580, 1)[0]
+        change = item.get("change_pct")
+        value = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
+        color = "#4ade80" if isinstance(change, (int, float)) and change > 0 else "#fb7185" if isinstance(change, (int, float)) and change < 0 else "#cbd5e1"
+        draw.text((75, y), name, fill="#e2e8f0", font=_load_font(26, True))
+        draw.text((990 - _text_width(draw, value, _load_font(28, True)), y), value, fill=color, font=_load_font(28, True))
+        draw.line((75, y + 48, 1005, y + 48), fill="#253447", width=2)
+    if not items:
+        draw.text((75, 585), "数字は未確認です", fill="#cbd5e1", font=_load_font(26))
+    draw.text((60, 935), "注目ニュース", fill="#f8fafc", font=_load_font(32, True))
+    research = raw_data.get("research", {}) or {}
+    from notification_news import build_notification_news_lines
+    news = build_notification_news_lines(research)
+    news_text = news[1] if len(news) > 1 else "材料ニュースは未確認です。"
+    for i, line in enumerate(_shorten_text(draw, news_text, _load_font(25, True), 940, 3)):
+        draw.text((75, 995 + i * 36), line, fill="#e2e8f0", font=_load_font(25, True))
+    draw.text((60, 1140), "分析の要点", fill="#f8fafc", font=_load_font(32, True))
+    from notification_summary import build_notification_analysis_lines
+    lines = build_notification_analysis_lines(summary, limit=2, max_chars=100) or ["分析に必要な情報は未確認です。"]
+    y = 1200
+    for text in lines:
+        for line in _shorten_text(draw, text, _load_font(25, True), 930, 3):
+            draw.text((75, y), line, fill="#e2e8f0", font=_load_font(25, True))
+            y += 36
+        y += 16
+    draw.text((60, 1525), "取得できない情報は未確認。数値の基準日は各データによります。", fill="#94a3b8", font=_load_font(20))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"{task_id}_detail.png"
+    image.save(path)
     return path
