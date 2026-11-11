@@ -594,25 +594,28 @@ def _draw_priority_banner(
     dashboard = summary.get("analysis_dashboard", {})
     score = dashboard.get("score")
     score_text = f"{score}/100" if isinstance(score, int) else "未確認"
+    banner_height = 118
     draw.rounded_rectangle(
-        (x, y, x + width, y + 96),
+        (x, y, x + width, y + banner_height),
         radius=24,
         fill="#f8fafc",
         outline=palette["accent"],
         width=4,
     )
-    draw.rounded_rectangle((x + 18, y + 18, x + 190, y + 78), radius=18, fill=category_style["fill"], outline=category_style["accent"], width=2)
-    draw.text((x + 42, y + 30), category_style["signal_label"], fill=category_style["accent2"], font=_load_font(27, bold=True))
-    draw.text((x + 214, y + 18), label, fill=palette["accent"], font=_load_font(34, bold=True))
-    line_font = _load_font(24, bold=True)
-    line = _shorten_text(draw, conclusion, line_font, width - 468, 1)[0]
-    draw.text((x + 214, y + 56), line, fill="#0f172a", font=line_font)
-    draw.rounded_rectangle((x + width - 216, y + 18, x + width - 24, y + 78), radius=18, fill="#0b1624", outline="#334155", width=2)
+    draw.rounded_rectangle((x + 18, y + 18, x + 190, y + 98), radius=18, fill=category_style["fill"], outline=category_style["accent"], width=2)
+    draw.text((x + 42, y + 35), category_style["signal_label"], fill=category_style["accent2"], font=_load_font(27, bold=True))
+    draw.text((x + 214, y + 16), label, fill=palette["accent"], font=_load_font(32, bold=True))
+    line_font = _load_font(20, bold=True)
+    # Keep the actionable conclusion readable instead of compressing it into one clipped line.
+    lines = _shorten_text(draw, conclusion, line_font, width - 468, 2)
+    for index, line in enumerate(lines):
+        draw.text((x + 214, y + 59 + index * 26), line, fill="#0f172a", font=line_font)
+    draw.rounded_rectangle((x + width - 216, y + 18, x + width - 24, y + 98), radius=18, fill="#0b1624", outline="#334155", width=2)
     quality = summary.get("data_quality", {})
     quality_text = f"品質 {quality.get('verified', 0)}/{quality.get('total', 0)}"
     score_label = "確認度" if summary.get("series_mode") == "intraday" else "地合い"
-    draw.text((x + width - 190, y + 24), f"{score_label} {score_text}", fill="#f8fafc", font=_load_font(20, bold=True))
-    draw.text((x + width - 190, y + 50), quality_text, fill="#93c5fd", font=_load_font(17, bold=True))
+    draw.text((x + width - 190, y + 31), f"{score_label} {score_text}", fill="#f8fafc", font=_load_font(20, bold=True))
+    draw.text((x + width - 190, y + 61), quality_text, fill="#93c5fd", font=_load_font(17, bold=True))
 
 
 def _paste_dark_characters(canvas: Image.Image, tone: str) -> None:
@@ -809,9 +812,9 @@ def create_summary_card(
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
     _draw_dark_header(draw, summary, task_config, visual_items, palette, category_style, 52, 54, width - 104)
     _draw_priority_banner(draw, summary, palette, category_style, 52, 314, width - 104)
-    _draw_dark_line_chart(draw, summary, 52, 434, width - 104, 500)
-    _draw_dark_bar_ranking(draw, summary, visual_items, 52, 958, width - 104, 430)
-    _draw_dark_memo(draw, summary, 52, 1430, width - 104, 330, palette)
+    _draw_dark_line_chart(draw, summary, 52, 456, width - 104, 490)
+    _draw_dark_bar_ranking(draw, summary, visual_items, 52, 970, width - 104, 410)
+    _draw_dark_memo(draw, summary, 52, 1410, width - 104, 360, palette)
     _paste_dark_characters(image, summary.get("market_tone", "neutral"))
     draw.rounded_rectangle((780, 1452, 938, 1488), radius=14, fill="#3b2a06", outline="#fbbf24", width=2)
     draw.text((802, 1459), "ガネーシャ先生", fill="#fde68a", font=_load_font(16, bold=True))

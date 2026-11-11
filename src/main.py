@@ -285,16 +285,17 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     generated_at_text = html.escape(str(summary["generated_at"]))
     teacher_text = html.escape(teacher_line)
     news_lines = build_notification_news_lines(raw_data.get("research", {}))
+    tone_icon = {"bull": "🟢", "bear": "🔴", "neutral": "🟡"}.get(summary.get("market_tone"), "🔵")
     message_parts = [
-        f"<b>{html.escape(news_lines[0])}</b>",
-        html.escape(news_lines[1]),
-        "",
+        f"{tone_icon} <b>{headline_text}</b>",
         f"<b>{title_text}</b>",
         f"配信日時: <code>{generated_at_text}</code>",
-        f"<b>{headline_text}</b>",
-        f"要点: {teacher_text}",
+        "",
+        f"<b>結論</b> {teacher_text}",
+        f"<b>{html.escape(news_lines[0])}</b>",
+        html.escape(news_lines[1]),
     ]
-    analysis_lines = build_notification_analysis_lines(summary, limit=2, max_chars=70)
+    analysis_lines = build_notification_analysis_lines(summary, limit=1, max_chars=70)
     if analysis_lines:
         message_parts.extend(f"・{html.escape(line)}" for line in analysis_lines)
     if link:
