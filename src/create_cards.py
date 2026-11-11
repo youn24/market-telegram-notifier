@@ -761,29 +761,18 @@ def _draw_dark_memo(
     draw.text((x + 28, y + 22), "ガネーシャ先生とカワウソ君の実戦メモ", fill=palette["accent2"], font=_load_font(31, bold=True))
     dialogue = summary.get("dialogue", []) or []
     student_text = next((str(item.get("text", "")) for item in dialogue if item.get("role") == "student"), "")
-    action = str(summary.get("analysis_dashboard", {}).get("action", "取得済みデータだけで判断します。"))
-    money_flow = summary.get("money_flow", {}) or {}
-    price_patterns = summary.get("price_pattern_candidates", []) or []
     comments = [
-        f"資金方向: {summary.get('money_flow_headline')}",
-        f"株価注意報: {summary.get('price_pattern_headline')}",
         f"先生: {summary.get('conclusion_text', '大きな偏りは未確認です。')}",
         f"カワウソ: {student_text or '先生、いま最優先で見る数字はどれですか？'}",
-        f"実戦: {action}",
     ]
-    if money_flow.get("status") != "ok":
-        comments.pop(0)
-    if not price_patterns:
-        comments = [comment for comment in comments if not comment.startswith("株価注意報:")]
     text_y = y + 82
     text_right = x + width - 300
-    for comment in comments[:3]:
-        draw.rounded_rectangle((x + 30, text_y - 8, text_right, text_y + 34), radius=16, fill="#10243a", outline="#1e3a5f")
-        draw.text((x + 48, text_y - 1), "•", fill="#f8fafc", font=_load_font(27, bold=True))
+    for comment in comments:
+        draw.rounded_rectangle((x + 30, text_y - 8, text_right, text_y + 70), radius=16, fill="#10243a", outline="#1e3a5f")
         memo_font = _load_font(21, bold=True)
-        memo_line = _shorten_text(draw, comment, memo_font, text_right - x - 92, 1)[0]
-        draw.text((x + 82, text_y - 3), memo_line, fill="#f8fafc", font=memo_font)
-        text_y += 49
+        for line_index, line in enumerate(_shorten_text(draw, comment, memo_font, text_right - x - 70, 2)):
+            draw.text((x + 48, text_y + line_index * 29), line, fill="#f8fafc", font=memo_font)
+        text_y += 92
     evidence = summary.get("research_evidence_briefs") or summary.get("research_evidence_lines", [])
     if evidence:
         line = _shorten_text(draw, "根拠: " + evidence[0], _load_font(17), text_right - x - 48, 1)[0]
@@ -799,7 +788,7 @@ def create_summary_card(
     output_dir: Path,
 ) -> Path:
     width = int(rules.get("common", {}).get("card_width", 1080))
-    height = int(rules.get("common", {}).get("card_height", 1920))
+    height = 1350
     image = Image.new("RGBA", (width, height), "#030712")
     draw = ImageDraw.Draw(image)
 
@@ -810,21 +799,34 @@ def create_summary_card(
 
     margin = 34
     draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=32, fill="#07111e", outline="#28415e", width=3)
-    _draw_dark_header(draw, summary, task_config, visual_items, palette, category_style, 52, 54, width - 104)
-    _draw_priority_banner(draw, summary, palette, category_style, 52, 314, width - 104)
-    _draw_dark_line_chart(draw, summary, 52, 456, width - 104, 490)
-    _draw_dark_bar_ranking(draw, summary, visual_items, 52, 970, width - 104, 410)
-    _draw_dark_memo(draw, summary, 52, 1410, width - 104, 360, palette)
-    _paste_dark_characters(image, summary.get("market_tone", "neutral"))
-    draw.rounded_rectangle((780, 1452, 938, 1488), radius=14, fill="#3b2a06", outline="#fbbf24", width=2)
-    draw.text((802, 1459), "ガネーシャ先生", fill="#fde68a", font=_load_font(16, bold=True))
-    draw.rounded_rectangle((900, 1558, 1042, 1592), radius=14, fill="#0f2f22", outline="#4ade80", width=2)
-    draw.text((923, 1564), "カワウソ君", fill="#bbf7d0", font=_load_font(16, bold=True))
-
-    footer_font = _load_font(16)
-    footer = f"{category_style['label']} | 数値は取得できたデータのみ使用。取得不能な情報は未確認。詳細はブラウザ版レポートへ。"
-    draw.text((72, height - 70), footer, fill="#94a3b8", font=footer_font)
-    draw.text((72, height - 44), f"生成時刻: {summary['generated_at']}", fill="#64748b", font=_load_font(14))
+    draw.text((76, 80), "GANESHA MARKET FEED", fill="#94a3b8", font=_load_font(26, bold=True))
+    title = str(task_config.get("title", "相場チェック"))
+    for i, line in enumerate(_shorten_text(draw, title, _load_font(56, bold=True), width - 152, 3)):
+        draw.text((76, 150 + i * 76), line, fill="#f8fafc", font=_load_font(56, bold=True))
+    draw.text((76, 405), f"配信 {summary.get('generated_at', '未確認')}", fill="#cbd5e1", font=_load_font(26))
+    draw.rounded_rectangle((76, 465, width - 76, 745), radius=26, fill="#101b2a", outline="#334155", width=2)
+    label = str(summary.get("conclusion_label", "様子見"))
+    draw.text((108, 490), "いまの判断", fill="#cbd5e1", font=_load_font(25, bold=True))
+    for i, line in enumerate(_shorten_text(draw, label, _load_font(48, bold=True), width - 216, 2)):
+        draw.text((108, 530 + i * 58), line, fill=palette["accent2"], font=_load_font(48, bold=True))
+    conclusion = str(summary.get("conclusion_text", "取得できたデータのみで確認します。"))
+    for i, line in enumerate(_shorten_text(draw, conclusion, _load_font(25, bold=True), width - 216, 2)):
+        draw.text((108, 650 + i * 33), line, fill="#f8fafc", font=_load_font(25, bold=True))
+    draw.text((76, 790), "注目の数字", fill="#f8fafc", font=_load_font(32, bold=True))
+    for index, item in enumerate(visual_items[:3]):
+        y = 850 + index * 75
+        name = _shorten_text(draw, str(item.get("label", "未確認")), _load_font(27, bold=True), 480, 1)[0]
+        change = item.get("change_pct")
+        value = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
+        color = "#4ade80" if isinstance(change, (int, float)) and change > 0 else "#fb7185" if isinstance(change, (int, float)) and change < 0 else "#cbd5e1"
+        draw.text((90, y), name, fill="#e2e8f0", font=_load_font(27, bold=True))
+        draw.text((width - 100 - _text_width(draw, value, _load_font(31, bold=True)), y), value, fill=color, font=_load_font(31, bold=True))
+        draw.line((90, y + 55, width - 90, y + 55), fill="#253447", width=2)
+    if not visual_items:
+        draw.text((90, 850), "数値は未確認です", fill="#cbd5e1", font=_load_font(27))
+    draw.rounded_rectangle((76, 1140, width - 76, 1222), radius=20, fill="#133053", outline="#3b82f6", width=2)
+    draw.text((110, 1160), "詳しい分析・チャートはリンクから", fill="#e0f2fe", font=_load_font(28, bold=True))
+    draw.text((76, 1260), "取得できない情報は未確認として表示", fill="#94a3b8", font=_load_font(20))
 
     path = output_dir / f"{task_id}_card.png"
     image.convert("RGB").save(path, quality=95)

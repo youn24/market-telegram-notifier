@@ -976,6 +976,13 @@ def create_market_report(
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{_safe(task_config.get("title", task_id))}</title>
   <style>
+    .feed-intro {{ background: #080d14; color: #f8fafc; border: 1px solid #334155; border-radius: 20px; padding: clamp(22px, 5vw, 44px); margin-bottom: 16px; }}
+    .feed-intro .feed-brand {{ color: #94a3b8; font-size: 14px; letter-spacing: .12em; font-weight: 800; }}
+    .feed-intro h1 {{ color: #f8fafc; font-size: clamp(30px, 7vw, 48px); line-height: 1.35; margin: 22px 0 12px; overflow-wrap: anywhere; }}
+    .feed-intro .feed-meta {{ color: #cbd5e1; font-size: 15px; line-height: 1.6; }}
+    .feed-intro .feed-conclusion {{ border-left: 4px solid #38bdf8; background: #142235; border-radius: 4px 14px 14px 4px; margin-top: 24px; padding: 18px; }}
+    .feed-intro .feed-conclusion strong {{ color: #7dd3fc; font-size: 16px; }}
+    .feed-intro .feed-conclusion p {{ color: #fff; font-size: 20px; font-weight: 700; line-height: 1.7; margin: 8px 0 0; }}
     :root {{
       --bg: #eef3f8;
       --panel: #ffffff;
@@ -2526,36 +2533,27 @@ def create_market_report(
 </head>
 <body class="category-{_safe(category_style["class"])}">
   <main class="page">
-    <section class="hero">
-      <div class="hero-layout">
-        <div>
-          <div class="category-ribbon">
-            <span>{_safe(category_style["kicker"])}</span>
-            <strong>{_safe(category_style["label"])}</strong>
-            <em>{_safe(category_style["subtitle"])}</em>
-          </div>
-          <div class="eyebrow">{_safe(summary.get("theme_title", "本日のテーマ"))}</div>
-          <h1>{_safe(task_config.get("title", task_id))}</h1>
-          <div class="badge">{_safe(market_label)}</div>
-          <div class="theme">{_safe(summary.get("theme_subtitle", ""))}</div>
-          <div class="meta">配信日時: {_safe(summary.get("generated_at", ""))}</div>
-          {data_quality_html}
-          <div class="digest-strip">
-            {digest_tiles_html}
-          </div>
-        </div>
-        {hero_illustration_html}
-      </div>
-    </section>
-
-    <section class="panel design-panel">
-      <h2>デザイン方針</h2>
-      {design_tools_html}
+    <section class="feed-intro">
+      <div class="feed-brand">GANESHA MARKET FEED</div>
+      <h1>{_safe(task_config.get("title", task_id))}</h1>
+      <div class="feed-meta">配信日時: {_safe(summary.get("generated_at", "未確認"))}　|　判断: {_safe(summary.get("conclusion_label", market_label))}</div>
+      <div class="feed-conclusion"><strong>まず結論</strong><p>{_safe(summary.get("conclusion_text", "取得データを確認してください。"))}</p></div>
     </section>
 
     <section class="panel">
-      <h2>結論</h2>
-      <div class="conclusion">{_safe(summary.get("conclusion_text", ""))}</div>
+      <h2>重要数字</h2>
+      {data_quality_html}
+      <div class="metric-grid">{metrics_html}</div>
+    </section>
+
+    <section class="panel">
+      <h2>注目の材料・ニュース</h2>
+      <div class="research-grid">{research_html}</div>
+    </section>
+
+    <section class="panel">
+      <h2>今日のシナリオ</h2>
+      <ul class="signal-list">{scenario_html}</ul>
     </section>
 
     <section class="panel">
@@ -2598,12 +2596,6 @@ def create_market_report(
 
     {youtube_reference_html}
 
-    <section class="panel">
-      <h2>材料検索・ニュース根拠</h2>
-      <div class="research-grid">
-        {research_html}
-      </div>
-    </section>
 
     <section class="panel">
       <h2>nikkei225jp.com参照</h2>
@@ -2627,12 +2619,6 @@ def create_market_report(
       </div>
     </section>
 
-    <section class="panel">
-      <h2>重要数字</h2>
-      <div class="metric-grid">
-        {metrics_html}
-      </div>
-    </section>
 
     <section class="panel">
       <h2>金利・VIX・マクロ比較</h2>
@@ -2671,12 +2657,6 @@ def create_market_report(
       </div>
     </section>
 
-    <section class="panel">
-      <h2>今日の3シナリオ</h2>
-      <ul class="signal-list">
-        {scenario_html}
-      </ul>
-    </section>
 
     <section class="panel">
       <h2>注目ポイント</h2>

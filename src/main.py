@@ -287,8 +287,8 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     news_lines = build_notification_news_lines(raw_data.get("research", {}))
     tone_icon = {"bull": "🟢", "bear": "🔴", "neutral": "🟡"}.get(summary.get("market_tone"), "🔵")
     message_parts = [
-        f"{tone_icon} <b>{headline_text}</b>",
-        f"<b>{title_text}</b>",
+        f"{tone_icon} <b>{title_text}</b>",
+        f"<b>{headline_text}</b>",
         f"配信日時: <code>{generated_at_text}</code>",
         "",
         f"<b>結論</b> {teacher_text}",
