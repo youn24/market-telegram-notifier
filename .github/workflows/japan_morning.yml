@@ -7,6 +7,11 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      telegram_test:
+        description: "Telegramに【テスト】付きの2枚組を1回送信"
+        type: boolean
+        default: false
   schedule:
     # GitHub側の開始遅延に備えた予備起動。送信は09:30-11:00 JSTの最初の1回だけ。
     - cron: "50 21 * * 0-4"
@@ -76,6 +81,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_ATTACH_IMAGE: ${{ vars.TELEGRAM_ATTACH_IMAGE }}
+          TELEGRAM_TEST_DELIVERY: ${{ inputs.telegram_test }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -99,17 +105,17 @@ jobs:
           key: ${{ steps.window.outputs.cache_key }}
 
       - name: Setup Pages
-        if: steps.run_task.outputs.sent == 'true'
+        if: steps.run_task.outputs.sent == 'true' && !inputs.telegram_test
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        if: steps.run_task.outputs.sent == 'true'
+        if: steps.run_task.outputs.sent == 'true' && !inputs.telegram_test
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
-    if: needs.notify.outputs.sent == 'true'
+    if: needs.notify.outputs.sent == 'true' && !inputs.telegram_test
     environment:
       name: github-pages
     needs: notify

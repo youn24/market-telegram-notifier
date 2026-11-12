@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 from analyze_rules import build_summary
 from create_cards import create_summary_card, create_detail_card
+from fetch_cot import fetch_cot_line
 from create_charts import create_market_chart
 from create_report import create_market_report
 from design_director import build_design_direction, write_design_handoff
@@ -261,6 +262,7 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     output_dir = ensure_output_dir(context.task_id)
     chart_path = create_market_chart(context.task_id, context.task_config, raw_data, context.rules, output_dir)
     card_path = create_summary_card(context.task_id, context.task_config, summary, context.rules, output_dir)
+    raw_data["cot_line"] = fetch_cot_line(datetime.now(JST).date())
     detail_path = create_detail_card(context.task_id, context.task_config, summary, raw_data, output_dir)
     design_direction = build_design_direction(context.task_id, context.task_config, summary, raw_data)
     create_market_report(context.task_id, context.task_config, summary, raw_data, SITE_DIR, card_path, chart_path, design_direction)
@@ -298,7 +300,10 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     analysis_lines = build_notification_analysis_lines(summary, limit=1, max_chars=70)
     if analysis_lines:
         message_parts.extend(f"・{html.escape(line)}" for line in analysis_lines)
-    attach_images = should_attach_telegram_image()
+    test_delivery = env_flag("TELEGRAM_TEST_DELIVERY", False)
+    if test_delivery:
+        message_parts[0] = "<b>【テスト】</b> " + message_parts[0]
+    attach_images = test_delivery or should_attach_telegram_image()
     if attach_images:
         message_parts.extend(["", "画像を開くと2枚目に分析があります。"])
 

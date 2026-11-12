@@ -820,6 +820,8 @@ def create_summary_card(
         value = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
         color = "#4ade80" if isinstance(change, (int, float)) and change > 0 else "#fb7185" if isinstance(change, (int, float)) and change < 0 else "#cbd5e1"
         draw.text((90, y), name, fill="#e2e8f0", font=_load_font(27, bold=True))
+        attribution = f"{item.get('source') or '出典未確認'} / {item.get('as_of') or '対象日未確認'}"
+        draw.text((90, y + 32), _shorten_text(draw, attribution, _load_font(17), width - 180, 1)[0], fill="#94a3b8", font=_load_font(17))
         draw.text((width - 100 - _text_width(draw, value, _load_font(31, bold=True)), y), value, fill=color, font=_load_font(31, bold=True))
         draw.line((90, y + 55, width - 90, y + 55), fill="#253447", width=2)
     if not visual_items:
@@ -834,7 +836,7 @@ def create_summary_card(
 
 
 def create_detail_card(task_id: str, task_config: dict[str, Any], summary: dict[str, Any], raw_data: dict[str, Any], output_dir: Path) -> Path:
-    width, height = 1080, 1600
+    width, height = 1080, 1830
     image = Image.new("RGB", (width, height), "#07111e")
     draw = ImageDraw.Draw(image)
     draw.text((60, 45), "MARKET ANALYSIS  /  2", fill="#7dd3fc", font=_load_font(24, True))
@@ -856,8 +858,11 @@ def create_detail_card(task_id: str, task_config: dict[str, Any], summary: dict[
         value = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
         color = "#4ade80" if isinstance(change, (int, float)) and change > 0 else "#fb7185" if isinstance(change, (int, float)) and change < 0 else "#cbd5e1"
         draw.text((75, y), name, fill="#e2e8f0", font=_load_font(26, True))
+        attribution = f"{item.get('source') or '出典未確認'} / {item.get('as_of') or '対象日未確認'}"
+        attribution = _shorten_text(draw, attribution, _load_font(19), 920, 1)[0]
+        draw.text((75, y + 32), attribution, fill="#94a3b8", font=_load_font(19))
         draw.text((990 - _text_width(draw, value, _load_font(28, True)), y), value, fill=color, font=_load_font(28, True))
-        draw.line((75, y + 48, 1005, y + 48), fill="#253447", width=2)
+        draw.line((75, y + 60, 1005, y + 60), fill="#253447", width=2)
     if not items:
         draw.text((75, 585), "数字は未確認です", fill="#cbd5e1", font=_load_font(26))
     draw.text((60, 935), "注目ニュース", fill="#f8fafc", font=_load_font(32, True))
@@ -876,7 +881,17 @@ def create_detail_card(task_id: str, task_config: dict[str, Any], summary: dict[
             draw.text((75, y), line, fill="#e2e8f0", font=_load_font(25, True))
             y += 36
         y += 16
-    draw.text((60, 1525), "取得できない情報は未確認。数値の基準日は各データによります。", fill="#94a3b8", font=_load_font(20))
+    draw.text((60, 1490), "週間需給・適時開示", fill="#f8fafc", font=_load_font(30, True))
+    weekly = [
+        raw_data.get("cot_line", "円先物 COT: 未確認（CFTC / 対象週未確認）"),
+        "投資部門別売買: 未確認（JPX / 対象週未確認）",
+        "決算・業績修正・増配・自社株買い: TDnet直接取得は未確認",
+    ]
+    y = 1545
+    for entry in weekly:
+        for line in _shorten_text(draw, entry, _load_font(23), 940, 2):
+            draw.text((75, y), line, fill="#cbd5e1", font=_load_font(23))
+            y += 32
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{task_id}_detail.png"
     image.save(path)
