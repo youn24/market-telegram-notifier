@@ -1,10 +1,48 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 
 AI_LABEL_PRIORITY = ("根拠:", "注視:", "反証:", "回避:")
 SKIP_LABELS = ("結論:", "未確認:")
+
+
+def build_market_comparison(raw_data: dict[str, Any]) -> tuple[str, str] | None:
+    """Compare related markets only when their observation labels match."""
+    items = {
+        item.get("key"): item
+        for item in raw_data.get("items", [])
+        if item.get("status") == "ok" and item.get("quality_status") not in {"stale", "unavailable"}
+    }
+    pairs = (
+        ("NIKKEI225", "TOPIX"),
+        ("NASDAQ", "SP500"),
+        ("NASDAQ100_FUT", "SP500_FUT"),
+    )
+    for left_key, right_key in pairs:
+        left, right = items.get(left_key), items.get(right_key)
+        if not left or not right or not left.get("as_of") or left["as_of"] != right.get("as_of"):
+            continue
+        a, b = left.get("change_pct"), right.get("change_pct")
+        if not all(isinstance(value, (int, float)) and isfinite(value) for value in (a, b)):
+            continue
+        left_label, right_label = left["label"], right["label"]
+        gap = a - b
+        evidence = f"{left_label} {a:+.2f}%／{right_label} {b:+.2f}%（差 {gap:+.2f}pt）"
+        if a * b < 0:
+            watch = f"{left_label}と{right_label}は逆方向。次の観測で同方向にそろうか確認。"
+        elif abs(gap) >= 0.5:
+            weaker = right_label if gap > 0 else left_label
+            watch = f"{weaker}が追いつくか、強い側が失速して差が縮むかを確認。"
+        elif a < 0 and b < 0:
+            watch = "両方が前日基準を回復するか確認。片方だけの反発なら見方を保留。"
+        elif a > 0 and b > 0:
+            watch = "両方が上昇を維持するか確認。片方がマイナスに転じたら見直し。"
+        else:
+            watch = "次の観測で両方の方向がそろうか確認。"
+        return evidence, watch
+    return None
 
 
 def _clean_line(value: Any, max_chars: int) -> str:

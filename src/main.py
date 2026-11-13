@@ -29,7 +29,7 @@ from fetch_nikkei225jp import fetch_nikkei225jp_snapshot
 from fetch_research import fetch_research_snapshot
 from notify_telegram import send_telegram_notification
 from notification_news import build_notification_news_lines
-from notification_summary import build_notification_analysis_lines
+from notification_summary import build_market_comparison, build_notification_analysis_lines
 from openai_summary import maybe_generate_openai_summary
 from schedule_guard import evaluate_task_eligibility
 
@@ -306,9 +306,15 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
     analysis_lines = build_notification_analysis_lines(summary, limit=3, max_chars=58)
     watch = next((line.removeprefix("注視:").strip() for line in analysis_lines if line.startswith("注視:")), "未確認")
     evidence = next((line.removeprefix("根拠:").strip() for line in analysis_lines if line.startswith("根拠:")), "")
+    comparison = build_market_comparison(raw_data) if context.task_config.get("category") != "after_hours" else None
+    if comparison:
+        evidence, watch = comparison
+    elif watch == "未確認":
+        scenario = next((line for line in summary.get("scenarios", []) if line.startswith("中立シナリオ:")), "")
+        watch = clip_message_text(scenario.removeprefix("中立シナリオ:").strip(), 62) or watch
     if evidence:
-        message_parts.append(f"<b>根拠</b> {html.escape(evidence)}")
-    message_parts.append(f"<b>次に見る</b> {html.escape(watch)}")
+        message_parts.append(f"<b>根拠</b> {html.escape(clip_message_text(evidence, 82))}")
+    message_parts.append(f"<b>次に見る</b> {html.escape(clip_message_text(watch, 70))}")
     test_delivery = env_flag("TELEGRAM_TEST_DELIVERY", False)
     if test_delivery:
         message_parts[0] = "<b>【テスト】</b> " + message_parts[0]
