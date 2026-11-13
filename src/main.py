@@ -282,7 +282,7 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         summary.get("conclusion_text", "未確認データを残しながら、取れる数字だけで判断します。"),
         90,
     )
-    title_text = html.escape(title)
+    title_text = html.escape(clip_message_text(title, 52))
     headline_text = html.escape(headline)
     generated_at_text = html.escape(str(summary["generated_at"]))
     teacher_text = html.escape(teacher_line)
@@ -294,23 +294,30 @@ def build_notification(context: TaskContext, use_ai: bool = True) -> tuple[str, 
         f"配信日時: <code>{generated_at_text}</code>",
         "",
         f"<b>結論</b> {teacher_text}",
-        f"<b>{html.escape(news_lines[0])}</b>",
-        html.escape(news_lines[1]),
     ]
-    analysis_lines = build_notification_analysis_lines(summary, limit=1, max_chars=70)
-    if analysis_lines:
-        message_parts.extend(f"・{html.escape(line)}" for line in analysis_lines)
+    moves = []
+    for item in (summary.get("visual_items") or [])[:3]:
+        label = clip_message_text(item.get("label") or "銘柄未確認", 14)
+        change = item.get("change_pct")
+        value = f"{change:+.2f}%" if isinstance(change, (int, float)) else "未確認"
+        moves.append(f"{label} {value}")
+    moves_text = " / ".join(moves) or "未確認"
+    message_parts.extend(["", f"<b>重要数字</b> {html.escape(moves_text)}"])
+    analysis_lines = build_notification_analysis_lines(summary, limit=3, max_chars=58)
+    watch = next((line.removeprefix("注視:").strip() for line in analysis_lines if line.startswith("注視:")), "未確認")
+    evidence = next((line.removeprefix("根拠:").strip() for line in analysis_lines if line.startswith("根拠:")), "")
+    if evidence:
+        message_parts.append(f"<b>根拠</b> {html.escape(evidence)}")
+    message_parts.append(f"<b>次に見る</b> {html.escape(watch)}")
     test_delivery = env_flag("TELEGRAM_TEST_DELIVERY", False)
     if test_delivery:
         message_parts[0] = "<b>【テスト】</b> " + message_parts[0]
     attach_images = test_delivery or should_attach_telegram_image()
-    if attach_images:
-        message_parts.extend(["", "画像を開くと2枚目に分析があります。"])
-
     text = "\n".join(message_parts)
-    if len(text) > 900:
-        message_parts = message_parts[:7] + message_parts[-2:]
-        text = "\n".join(message_parts)
+    material = news_lines[1].removeprefix("材料ニュース:").strip()
+    material_line = f"<b>材料</b> {html.escape(clip_message_text(material, 112))}"
+    if len(text) + len(material_line) + 1 <= 1024:
+        text += "\n" + material_line
 
     images = [card_path, detail_path] if attach_images else []
     return text, images, raw_data

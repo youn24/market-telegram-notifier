@@ -831,7 +831,7 @@ def create_summary_card(
     if not visual_items:
         draw.text((90, 850), "数値は未確認です", fill="#cbd5e1", font=_load_font(27))
     draw.rounded_rectangle((76, 1140, width - 76, 1222), radius=20, fill="#133053", outline="#3b82f6", width=2)
-    draw.text((110, 1160), "画像を開いて2枚目の分析を見る", fill="#e0f2fe", font=_load_font(28, bold=True))
+    draw.text((110, 1160), "結論と次に見るポイントは通知本文に掲載", fill="#e0f2fe", font=_load_font(28, bold=True))
     draw.text((76, 1260), "取得できない情報は未確認として表示", fill="#94a3b8", font=_load_font(20))
 
     path = output_dir / f"{task_id}_card.png"
